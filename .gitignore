@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.idea/
+.vscode/
+TestResults/
+coverage/
+*.user
+*.suo
+*.db
+*.log
+.env
+appsettings.Development.local.json

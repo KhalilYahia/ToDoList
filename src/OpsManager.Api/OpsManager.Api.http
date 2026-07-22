@@ -1,0 +1,19 @@
+@OpsManager.Api_HostAddress = http://localhost:5291
+
+GET {{OpsManager.Api_HostAddress}}/api/v1
+Accept: application/json
+
+###
+
+GET {{OpsManager.Api_HostAddress}}/health/live
+
+###
+
+GET {{OpsManager.Api_HostAddress}}/health/ready
+
+###
+
+GET {{OpsManager.Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###
