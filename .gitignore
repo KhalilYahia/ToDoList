@@ -17,3 +17,8 @@ frontend/**/coverage/
 frontend/**/playwright-report/
 frontend/**/test-results/
 frontend/**/.env.local
+*.heapsnapshot
+*.stdout.log
+*.stderr.log
+src/OpsManager.Api/wwwroot/uploads/*
+!src/OpsManager.Api/wwwroot/uploads/.gitkeep
