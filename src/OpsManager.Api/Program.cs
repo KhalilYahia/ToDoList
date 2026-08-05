@@ -184,6 +184,7 @@ builder.Services.AddCors(options => options.AddPolicy("ConfiguredOrigins", polic
     }
 }));
 
+// this for Caddy
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
@@ -194,6 +195,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 WebApplication app = builder.Build();
+
+// this for Caddy
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 app.UseCors("ConfiguredOrigins");
