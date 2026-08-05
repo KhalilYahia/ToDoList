@@ -54,3 +54,13 @@ public static class SubscriptionFeatureKeys
     public const string Complaints = "complaints";
     public const string Reports = "reports";
 }
+
+public static class PolicyNames
+{
+    public const string OrganizationMember = "OrganizationMember";
+    public const string Manager = "Manager";
+    public const string SupervisorOrManager = "SupervisorOrManager";
+    public const string Employee = "Employee";
+    public const string PlatformUser = "PlatformUser";
+    public const string PlatformAdministrator = "PlatformAdministrator";
+}

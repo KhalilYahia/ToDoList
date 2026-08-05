@@ -15,6 +15,8 @@ public sealed class OpsManagerApiFactory(string connectionString) : WebApplicati
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseSetting("ConnectionStrings:OpsManager", connectionString);
+        builder.UseSetting("Database:EnableRetryOnFailure", "false");
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();

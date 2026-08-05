@@ -155,26 +155,42 @@ public sealed class DevelopmentDataSeeder(OpsManagerDbContext context) : IDevelo
             GracePeriodEndsAt = now.AddDays(21),
         }, cancellationToken);
 
-        await AddIfMissingAsync(new TaskTemplate(OrganizationId, KitchenDepartmentId, "Opening checklist", ManagerId)
+        TaskTemplate taskTemplate = new(OrganizationId, KitchenDepartmentId, "Opening checklist", ManagerId)
         {
             Id = TaskTemplateId,
-            BranchId = BranchId,
-            DefaultAssigneeUserId = SupervisorId,
-            Description = "Snapshot source for a sample scheduled operational task.",
-            RequiresApproval = true,
-        }, cancellationToken);
-        await AddIfMissingAsync(new TaskTemplateItem(OrganizationId, TaskTemplateId, "Inspect preparation area", 1)
-        {
-            Id = TaskTemplateItemOneId,
-            IsRequired = true,
-            EvidenceMode = EvidenceMode.Required,
-        }, cancellationToken);
-        await AddIfMissingAsync(new TaskTemplateItem(OrganizationId, TaskTemplateId, "Verify equipment status", 2)
-        {
-            Id = TaskTemplateItemTwoId,
-            IsRequired = true,
-            EvidenceMode = EvidenceMode.Optional,
-        }, cancellationToken);
+        };
+        taskTemplate.Update(
+            KitchenDepartmentId,
+            "Opening checklist",
+            "Snapshot source for a sample scheduled operational task.",
+            TaskPriority.Normal,
+            null,
+            true);
+        await AddIfMissingAsync(taskTemplate, cancellationToken);
+        await AddIfMissingAsync(
+            new TaskTemplateItem(
+                OrganizationId,
+                TaskTemplateId,
+                "Inspect preparation area",
+                1,
+                isRequired: true,
+                evidenceMode: EvidenceMode.Required)
+            {
+                Id = TaskTemplateItemOneId,
+            },
+            cancellationToken);
+        await AddIfMissingAsync(
+            new TaskTemplateItem(
+                OrganizationId,
+                TaskTemplateId,
+                "Verify equipment status",
+                2,
+                isRequired: true,
+                evidenceMode: EvidenceMode.Optional)
+            {
+                Id = TaskTemplateItemTwoId,
+            },
+            cancellationToken);
 
         await AddIfMissingAsync(new OrderTemplate(
             OrganizationId,

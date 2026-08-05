@@ -1,52 +1,87 @@
 # Setup
 
-## Prerequisites
+## Requirements
 
-- .NET SDK 10.0.301 or a compatible .NET 10 patch.
-- PostgreSQL 16 or newer; the integration tests use `postgres:17-alpine` when Docker is available.
-- Docker only if running Testcontainers-based tests.
+- .NET SDK 10
+- PostgreSQL 17-compatible server
+- Docker only for Testcontainers integration tests
 
-Docker and local PostgreSQL tools were not available when Prompt 01 was implemented, so no environment-specific Compose file was generated.
+Copy values from `.env.example` into your local environment or user-secret store. Never commit a production database password or JWT signing key.
 
-## Configure PostgreSQL
+Required production settings:
 
-Copy `.env.example` values into your shell, IDE secret store, or an uncommitted local settings file. Do not commit real credentials.
-
-Example Docker command on a machine with Docker:
-
-```powershell
-docker run --name opsmanager-postgres -e POSTGRES_DB=opsmanager -e POSTGRES_USER=opsmanager -e POSTGRES_PASSWORD=change-me -p 5432:5432 -v opsmanager-postgres-data:/var/lib/postgresql/data -d postgres:17-alpine
+```text
+ConnectionStrings__OpsManager
+Jwt__Issuer
+Jwt__Audience
+Jwt__SigningKey
+Cors__AllowedOrigins__0
 ```
 
-Set the connection string:
+`Jwt__SigningKey` must be at least 32 UTF-8 bytes. The API refuses to start outside Development/Testing with the committed development placeholder. HTTPS, `RefreshCookie__Secure=true`, and an explicit CORS allowlist are required in production.
 
-```powershell
-$env:ConnectionStrings__OpsManager='Host=localhost;Port=5432;Database=opsmanager;Username=opsmanager;Password=change-me'
-```
+CORS origins are exact. Local development permits both
+`http://localhost:3000` and `http://127.0.0.1:3000`. Prefer using the same
+hostname for both applications—for example, frontend
+`http://localhost:3000` and API `http://localhost:5291`—because the refresh
+cookie uses `SameSite=Strict`. The browser network-panel text
+`strict-origin-when-cross-origin` is its referrer policy, not a CORS error.
 
-## Restore, migrate, and run
+## Database
 
 ```powershell
 dotnet tool restore
 dotnet restore OpsManager.sln
-dotnet tool run dotnet-ef database update --project src/OpsManager.Repository --startup-project src/OpsManager.Repository
-dotnet run --project src/OpsManager.Api
+dotnet ef database update --project src/OpsManager.Repository --startup-project src/OpsManager.Repository
 ```
 
-The design-time factory also accepts `OPSMANAGER_DB_CONNECTION` for EF CLI commands.
+Design-time commands read `OPSMANAGER_DB_CONNECTION`. Runtime reads `ConnectionStrings__OpsManager`.
 
-## Development seed
+Migrations:
 
-Seeding is disabled by default and never runs automatically in Production or Testing.
+- `20260722202008_InitialCreate`
+- `20260723220445_BackendLogicAndApis`
+- `20260723220906_TemplateItemHistoryPreservation`
+
+The Prompt 02 migration revokes legacy refresh sessions because old tokens did not carry tenant ownership. Users log in again after upgrading.
+
+## Optional development seed
+
+```text
+Seed__Enabled=true
+Seed__Password=YourLocalPassword123
+```
+
+The seed password is hashed and never logged. The seeded plan code is `development-standard`, matching the default onboarding configuration.
+
+## Run
 
 ```powershell
-$env:Seed__Enabled='true'
-$env:Seed__Password='replace-with-a-local-strong-password'
 dotnet run --project src/OpsManager.Api
 ```
 
-The API hashes the configured password with ASP.NET Core's password hasher, passes only the hash to Repository seed infrastructure, applies migrations, and inserts deterministic records that can be seeded repeatedly without duplication. The seed password is not printed.
+The Development profile permits the refresh cookie over local HTTP. All non-development environments keep it Secure.
 
-## OpenAPI
+### Docker Compose Deployment
 
-Run in Development and fetch `http://localhost:<port>/openapi/v1.json`. The generated document describes the bootstrap endpoints now and will include feature endpoints added in Prompt 02.
+To spin up PostgreSQL, the .NET Web API backend, and the Next.js frontend together:
+
+```bash
+docker compose up --build -d
+```
+
+To stop and remove containers and networks:
+
+```bash
+docker compose down
+```
+
+After startup:
+
+- API base: `http://localhost:5291/api/v1`
+- Swagger UI: `http://localhost:5291/swagger`
+- OpenAPI JSON: `http://localhost:5291/openapi/v1.json`
+- Liveness: `http://localhost:5291/health/live`
+- Database readiness: `http://localhost:5291/health/ready`
+
+Swagger and the generated OpenAPI document are available only in Development and Testing.

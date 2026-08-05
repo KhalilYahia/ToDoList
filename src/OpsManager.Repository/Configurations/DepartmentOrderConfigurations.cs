@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using OpsManager.Domain.Entities;
-using TaskEntity = OpsManager.Domain.Entities.Task;
 
 namespace OpsManager.Repository.Configurations;
 
@@ -40,7 +39,9 @@ internal sealed class OrderTemplateItemConfiguration : EntityConfigurationBase<O
         builder.Property(entity => entity.MinimumQuantity).HasPrecision(18, 3);
         builder.Property(entity => entity.ImageUrl).HasMaxLength(2048);
         builder.HasOne<OrderTemplate>().WithMany().HasForeignKey(entity => entity.OrderTemplateId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(entity => new { entity.OrderTemplateId, entity.SortOrder }).IsUnique();
+        builder.HasIndex(entity => new { entity.OrderTemplateId, entity.SortOrder })
+            .IsUnique()
+            .HasFilter("\"is_active\"");
     }
 }
 
@@ -60,7 +61,7 @@ internal sealed class DepartmentOrderConfiguration : EntityConfigurationBase<Dep
         builder.HasOne<OrderTemplate>().WithMany().HasForeignKey(entity => entity.OrderTemplateId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(entity => entity.SourceDepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Department>().WithMany().HasForeignKey(entity => entity.TargetDepartmentId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<TaskEntity>().WithMany().HasForeignKey(entity => entity.LinkedTaskId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<OperationalTask>().WithMany().HasForeignKey(entity => entity.LinkedTaskId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(entity => new { entity.OrganizationId, entity.OrderNumber }).IsUnique();
         builder.HasIndex(entity => new { entity.OrganizationId, entity.TargetDepartmentId, entity.Status });
         builder.HasIndex(entity => new { entity.OrganizationId, entity.SourceDepartmentId, entity.CreatedAt });

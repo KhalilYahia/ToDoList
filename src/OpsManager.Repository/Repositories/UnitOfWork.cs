@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using OpsManager.Domain.Common;
 using OpsManager.Domain.Repositories;
@@ -19,6 +20,20 @@ public sealed class UnitOfWork(OpsManagerDbContext context) : IUnitOfWork
         }
 
         return (IGenericRepository<TEntity>)repository;
+    }
+
+    public async Task ExecuteWithStrategyAsync(Func<Task> operation)
+    {
+        IExecutionStrategy strategy = context.Database.CreateExecutionStrategy();
+
+        await strategy.ExecuteAsync(operation);
+    }
+  
+    public async Task<TResult> ExecuteWithStrategyAsync<TResult>(Func<Task<TResult>> operation)
+    {
+        IExecutionStrategy strategy = context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(operation);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpsManager.Domain.Repositories;
 using OpsManager.Repository.Persistence;
 using OpsManager.Repository.Seeding;
@@ -15,12 +16,19 @@ public static class DependencyInjection
     {
         string connectionString = configuration.GetConnectionString("OpsManager")
             ?? throw new InvalidOperationException("ConnectionStrings:OpsManager is required.");
+        bool enableRetryOnFailure = !bool.TryParse(configuration["Database:EnableRetryOnFailure"], out bool configuredRetry)
+            || configuredRetry;
 
-        services.AddScoped<ITenantContext, EmptyTenantContext>();
+        services.TryAddScoped<ITenantContext, EmptyTenantContext>();
         services.AddDbContext<OpsManagerDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
-                npgsql.MigrationsAssembly(typeof(OpsManagerDbContext).Assembly.FullName)
-                    .EnableRetryOnFailure()));
+            {
+                npgsql.MigrationsAssembly(typeof(OpsManagerDbContext).Assembly.FullName);
+                if (enableRetryOnFailure)
+                {
+                    npgsql.EnableRetryOnFailure();
+                }
+            }));
         services.AddScoped<IUnitOfWork, Repositories.UnitOfWork>();
         services.AddScoped<IDevelopmentDataSeeder, DevelopmentDataSeeder>();
         services.AddHealthChecks()

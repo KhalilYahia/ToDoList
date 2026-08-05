@@ -1,0 +1,37 @@
+# Multi-stage Dockerfile for OpsManager ASP.NET Core Web API (.NET 10)
+
+# ------------------------------------------------------------------------------
+# Build Stage
+# ------------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy global configs and project files for layer caching
+COPY global.json Directory.Build.props OpsManager.sln ./
+COPY src/OpsManager.Domain/OpsManager.Domain.csproj src/OpsManager.Domain/
+COPY src/OpsManager.Repository/OpsManager.Repository.csproj src/OpsManager.Repository/
+COPY src/OpsManager.Service/OpsManager.Service.csproj src/OpsManager.Service/
+COPY src/OpsManager.Api/OpsManager.Api.csproj src/OpsManager.Api/
+
+# Restore dependencies
+RUN dotnet restore src/OpsManager.Api/OpsManager.Api.csproj
+
+# Copy source code and build/publish application
+COPY src/ src/
+WORKDIR /src/src/OpsManager.Api
+RUN dotnet publish OpsManager.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+# ------------------------------------------------------------------------------
+# Runtime Stage
+# ------------------------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+
+# Default ASP.NET Core configuration
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+# Copy published binaries from build stage
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "OpsManager.Api.dll"]

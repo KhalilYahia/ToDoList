@@ -9,7 +9,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Ops
     public OpsManagerDbContext CreateDbContext(string[] args)
     {
         string connectionString = Environment.GetEnvironmentVariable("OPSMANAGER_DB_CONNECTION")
-            ?? "Host=localhost;Port=5432;Database=opsmanager;Username=opsmanager;Password=opsmanager_dev";
+            ?? "Host=localhost;Port=5432;Database=opsmanager;Username=opsmanager_User;Password=123xxx123;Include Error Detail=false";
         DbContextOptions<OpsManagerDbContext> options = new DbContextOptionsBuilder<OpsManagerDbContext>()
             .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(OpsManagerDbContext).Assembly.FullName))
             .Options;

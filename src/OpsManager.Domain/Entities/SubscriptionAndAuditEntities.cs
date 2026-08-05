@@ -46,7 +46,7 @@ public sealed class SubscriptionHistory : TenantAuditableEntity
     public DateTimeOffset? OldEndsAt { get; set; }
     public DateTimeOffset? NewEndsAt { get; set; }
     public SubscriptionActionType ActionType { get; set; }
-    public Guid ChangedByPlatformUserId { get; set; }
+    public Guid? ChangedByPlatformUserId { get; set; }
     public string? Reason { get; set; }
 }
 

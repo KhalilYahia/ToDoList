@@ -19,9 +19,16 @@ public sealed class GenericRepository<TEntity>(OpsManagerDbContext context) : IG
         CancellationToken cancellationToken = default) =>
         _entities.AsNoTracking().FirstOrDefaultAsync(predicate, cancellationToken);
 
+    public Task<PagedResult<TEntity>> ListAsync(
+        Expression<Func<TEntity, bool>>? predicate,
+        PageRequest page,
+        CancellationToken cancellationToken = default) =>
+        ListAsync(predicate, page, null, cancellationToken);
+
     public async Task<PagedResult<TEntity>> ListAsync(
         Expression<Func<TEntity, bool>>? predicate,
         PageRequest page,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy,
         CancellationToken cancellationToken = default)
     {
         page.Validate();
@@ -32,12 +39,60 @@ public sealed class GenericRepository<TEntity>(OpsManagerDbContext context) : IG
         }
 
         int totalCount = await query.CountAsync(cancellationToken);
+        if (orderBy is not null)
+        {
+            query = orderBy(query);
+        }
+        else
+        {
+            query = query.OrderBy(entity => entity.Id);
+        }
+
         IReadOnlyList<TEntity> items = await query
-            .OrderBy(entity => entity.Id)
             .Skip(page.Skip)
             .Take(page.PageSize)
             .ToListAsync(cancellationToken);
         return new PagedResult<TEntity>(items, page.Page, page.PageSize, totalCount);
+    }
+
+    public async Task<IReadOnlyList<TResult>> ProjectAsync<TResult>(
+        Expression<Func<TEntity, bool>>? predicate,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<TEntity> query = _entities.AsNoTracking();
+        if (predicate is not null)
+        {
+            query = query.Where(predicate);
+        }
+
+        return await query.Select(selector).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<TResult>> ProjectJoinAsync<TOther, TKey, TResult>(
+        Expression<Func<TEntity, bool>>? predicate,
+        Expression<Func<TOther, bool>>? otherPredicate,
+        Expression<Func<TEntity, TKey>> keySelector,
+        Expression<Func<TOther, TKey>> otherKeySelector,
+        Expression<Func<TEntity, TOther, TResult>> selector,
+        CancellationToken cancellationToken = default)
+        where TOther : BaseEntity
+    {
+        IQueryable<TEntity> left = _entities.AsNoTracking();
+        IQueryable<TOther> right = context.Set<TOther>().AsNoTracking();
+        if (predicate is not null)
+        {
+            left = left.Where(predicate);
+        }
+
+        if (otherPredicate is not null)
+        {
+            right = right.Where(otherPredicate);
+        }
+
+        return await left
+            .Join(right, keySelector, otherKeySelector, selector)
+            .ToListAsync(cancellationToken);
     }
 
     public Task<int> CountAsync(
@@ -71,4 +126,6 @@ public sealed class GenericRepository<TEntity>(OpsManagerDbContext context) : IG
         softDeletable.DeletedAt = DateTimeOffset.UtcNow;
         _entities.Update(entity);
     }
+
+    public void DeletePermanently(TEntity entity) => _entities.Remove(entity);
 }

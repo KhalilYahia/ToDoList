@@ -1,26 +1,28 @@
 # Testing
 
-Run the complete suite:
+Run formatting, compilation, and all suites:
 
 ```powershell
-dotnet restore OpsManager.sln
+dotnet format OpsManager.sln --no-restore
 dotnet build OpsManager.sln --no-restore
 dotnet test OpsManager.sln --no-build
 ```
 
-Test coverage in Prompt 01 includes:
+Coverage includes:
 
-- Domain constructor guards, task transitions, schedule recurrence, evidence requirements, order delivery/receipt, quantities, and enum string-code stability.
-- Service clock behavior.
-- API startup, liveness, unavailable readiness, sanitized Problem Details, and database-backed readiness.
-- PostgreSQL migration application, unique constraints, enum/JSONB mapping, snapshots, tenant isolation, pagination, soft deletion, transaction rollback, and idempotent development seeding.
+- domain guards, evidence, explicit task transitions/timestamps, overdue derivation, order receipt/quantity rules, and stable enum codes;
+- daily/weekly/monthly recurrence and checklist validation;
+- API startup, liveness/readiness, sanitized Problem Details, invalid/expired JWTs, role policies, tenant claim context, and OpenAPI generation;
+- PostgreSQL migrations, relational constraints, `xmin` stale-write conflicts, scheduled-occurrence uniqueness, JSON/string enum mapping, tenant isolation, pagination, transactions, soft deletion, and seed idempotency;
+- frontend task/template/schedule contracts, the eight task status codes, nullable template department, enum weekdays, and overnight due offsets.
 
-Repository integration tests use `Testcontainers.PostgreSql`; EF Core InMemory is not used as evidence of PostgreSQL behavior. If the Docker CLI/daemon is unavailable, Docker-dependent tests report explicit skips. On a Docker-enabled machine, all those tests start disposable PostgreSQL 17 containers and must pass before merging persistence changes.
+Repository/API PostgreSQL tests use Testcontainers PostgreSQL 17. If Docker is unavailable, they explicitly skip rather than substituting EF InMemory. A CI/merge environment with Docker must run them without skips.
 
-Validate migration drift and generate a reviewable SQL script with:
+Migration checks:
 
 ```powershell
-dotnet tool restore
-dotnet tool run dotnet-ef migrations has-pending-model-changes --project src/OpsManager.Repository --startup-project src/OpsManager.Repository --no-build
-dotnet tool run dotnet-ef migrations script 0 InitialCreate --idempotent --project src/OpsManager.Repository --startup-project src/OpsManager.Repository --no-build
+dotnet ef migrations has-pending-model-changes --project src/OpsManager.Repository --startup-project src/OpsManager.Repository --no-build
+dotnet ef migrations script --idempotent --project src/OpsManager.Repository --startup-project src/OpsManager.Repository --no-build
 ```
+
+A clean validation database should receive all migrations before release. The Prompt 02 implementation was validated this way and the temporary database was removed afterward.

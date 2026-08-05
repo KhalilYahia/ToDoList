@@ -41,6 +41,27 @@ public interface IGenericRepository<TEntity>
         PageRequest page,
         CancellationToken cancellationToken = default);
 
+    Task<PagedResult<TEntity>> ListAsync(
+        Expression<Func<TEntity, bool>>? predicate,
+        PageRequest page,
+        Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy,
+        CancellationToken cancellationToken = default) =>
+        ListAsync(predicate, page, cancellationToken);
+
+    Task<IReadOnlyList<TResult>> ProjectAsync<TResult>(
+        Expression<Func<TEntity, bool>>? predicate,
+        Expression<Func<TEntity, TResult>> selector,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TResult>> ProjectJoinAsync<TOther, TKey, TResult>(
+        Expression<Func<TEntity, bool>>? predicate,
+        Expression<Func<TOther, bool>>? otherPredicate,
+        Expression<Func<TEntity, TKey>> keySelector,
+        Expression<Func<TOther, TKey>> otherKeySelector,
+        Expression<Func<TEntity, TOther, TResult>> selector,
+        CancellationToken cancellationToken = default)
+        where TOther : BaseEntity;
+
     Task<int> CountAsync(
         Expression<Func<TEntity, bool>>? predicate = null,
         CancellationToken cancellationToken = default);
@@ -56,6 +77,8 @@ public interface IGenericRepository<TEntity>
     void Update(TEntity entity);
 
     void Remove(TEntity entity);
+
+    void DeletePermanently(TEntity entity);
 }
 
 public interface IUnitOfWorkTransaction : IAsyncDisposable
@@ -68,6 +91,10 @@ public interface IUnitOfWorkTransaction : IAsyncDisposable
 public interface IUnitOfWork
 {
     IGenericRepository<TEntity> Repository<TEntity>() where TEntity : BaseEntity;
+
+    Task ExecuteWithStrategyAsync(Func<Task> operation);
+
+    Task<TResult> ExecuteWithStrategyAsync<TResult>(Func<Task<TResult>> operation);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

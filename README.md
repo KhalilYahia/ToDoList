@@ -1,57 +1,62 @@
 # OpsManager
 
-OpsManager is a multi-tenant operations platform for restaurants, workshops, and small businesses. This repository currently contains the Prompt 01 backend foundation: a .NET 10 Web API, Domain model, EF Core/PostgreSQL persistence, generic repository and UnitOfWork, initial migration, development seed, health checks, and foundational tests.
+OpsManager is a multi-tenant operations SaaS for restaurants, workshops, and small businesses. The backend is a .NET 10 Web API with ASP.NET Core, EF Core, PostgreSQL, JWT authentication, rotating refresh cookies, role and tenant authorization, recurring operational tasks, inter-department orders, complaints, subscriptions, notifications, and reports.
 
-## Solution structure
+Organization branch provisioning is a platform-administrator responsibility.
+Tenant managers can read branches for operational configuration, but only the
+platform API can add, update, or delete them.
+
+## Structure
 
 ```text
-OpsManager.sln
 src/
-  OpsManager.Domain/       Entities, enums, invariants, and repository contracts
-  OpsManager.Repository/   EF Core model, PostgreSQL migration, repositories, and seed
-  OpsManager.Service/      Service-layer abstractions; workflows arrive in Prompt 02
-  OpsManager.Api/          Composition root, OpenAPI, Problem Details, and health checks
+  OpsManager.Domain/       Entities, enums, invariants, repository contracts
+  OpsManager.Repository/   EF Core/PostgreSQL, migrations, repositories, seed
+  OpsManager.Service/      DTOs, validation, authorization-aware workflows, reports
+  OpsManager.Api/          Controllers, JWT, Problem Details, OpenAPI, hosted jobs
 tests/
   OpsManager.Domain.Tests/
-  OpsManager.Repository.IntegrationTests/
   OpsManager.Service.Tests/
+  OpsManager.Repository.IntegrationTests/
   OpsManager.Api.IntegrationTests/
-docs/
-  decisions/
 ```
 
-Dependencies point inward: `Domain <- Repository`, `Domain <- Service`, and `Service + Repository <- API`. API and Service do not query or inject `OpsManagerDbContext`.
+Dependencies point inward. Domain has no EF or ASP.NET dependency. Service and API never inject `OpsManagerDbContext`; persistence and reporting flow through `IUnitOfWork` and materializing generic-repository operations. No `IQueryable` crosses the Repository boundary.
 
 ## Quick start
 
-Prerequisites are .NET SDK 10.0.301 or a compatible .NET 10 patch, and PostgreSQL. Docker is optional but required for Testcontainers integration tests.
+Prerequisites: .NET 10 SDK and PostgreSQL. Docker is optional and enables disposable PostgreSQL integration tests.
 
 ```powershell
 dotnet tool restore
 dotnet restore OpsManager.sln
+dotnet ef database update --project src/OpsManager.Repository --startup-project src/OpsManager.Repository
 dotnet build OpsManager.sln --no-restore
 dotnet test OpsManager.sln --no-build
-dotnet tool run dotnet-ef database update --project src/OpsManager.Repository --startup-project src/OpsManager.Repository
 dotnet run --project src/OpsManager.Api
 ```
 
-The API exposes `/api/v1`, `/openapi/v1.json` in Development/Testing, `/health/live`, and `/health/ready`.
+Development endpoints:
 
-## Database and seed
+- API root: `GET /api/v1`
+- OpenAPI: `GET /openapi/v1.json`
+- Liveness/readiness: `GET /health/live`, `GET /health/ready`
+- Organization onboarding: `POST /api/v1/auth/register-organization`
+- Platform login: `POST /api/v1/platform/auth/login`
 
-The initial migration is `20260722202008_InitialCreate`. Override the development connection with `ConnectionStrings__OpsManager` as shown in `.env.example`.
+Access tokens are returned in authentication responses and kept only in frontend memory. Rotating refresh tokens are hashed in PostgreSQL and sent only as persistent HttpOnly cookies; the frontend uses them to restore login after reload. Local HTTP development overrides the cookie's `Secure` flag; production requires HTTPS and a signing key from a secret store. See [frontend authentication](docs/frontend-authentication.md).
 
-Development seeding is opt-in. Set `Seed__Enabled=true` and provide a local `Seed__Password` of at least 12 characters. The password is hashed with ASP.NET Core's password hasher and is never logged or committed. The seed creates these login records with the configured password:
+## Development seed
+
+Set `Seed__Enabled=true` and provide `Seed__Password` with at least 12 characters. The idempotent seed creates a platform administrator, a plan with all MVP features, a trial organization, Manager/Supervisor/Employee users, departments, memberships, and starter task/order templates.
+
+Seeded emails use the configured password:
 
 - `platform.admin@opsmanager.local`
 - `manager@opsmanager.local`
 - `supervisor@opsmanager.local`
 - `employee@opsmanager.local`
 
-It also creates one plan, organization, primary branch, three departments, memberships, a 14-day trial, a task template, and a department-order template. Deterministic IDs make the seed idempotent; it only runs automatically in Development when explicitly enabled.
+See [setup](docs/setup.md), [architecture](docs/architecture.md), [API conventions](docs/api-conventions.md), [endpoint catalog](docs/api-endpoints.md), [authorization](docs/authorization-matrix.md), and [testing](docs/testing.md).
 
-## Prompt 01 boundary
-
-Authentication endpoints, authorization policies, feature controllers, full Service workflows, reports, scheduled task generation, and the frontend are intentionally not implemented yet.
-
-See [setup](docs/setup.md), [architecture](docs/architecture.md), [data model](docs/data-model.md), and [testing](docs/testing.md). The exact next step is to execute `prompts/02-backend-logic-and-apis.md`.
+The exact next implementation stage is `prompts/03-frontend-project.md`.

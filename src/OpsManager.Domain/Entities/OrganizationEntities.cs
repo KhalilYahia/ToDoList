@@ -92,6 +92,7 @@ public sealed class User : SoftDeletableEntity
     public string? ProfileImageUrl { get; set; }
     public string PreferredLanguage { get; set; } = SupportedLanguages.English;
     public UserAccountStatus AccountStatus { get; set; } = UserAccountStatus.Active;
+    public bool MustChangePassword { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
 }
 
@@ -99,15 +100,37 @@ public sealed class RefreshToken : BaseEntity
 {
     private RefreshToken() { }
 
-    public RefreshToken(Guid userId, string tokenHash, DateTimeOffset expiresAt)
+    public RefreshToken(
+        Guid? userId,
+        Guid? platformUserId,
+        Guid? organizationId,
+        Guid familyId,
+        string tokenHash,
+        DateTimeOffset expiresAt)
     {
+        if ((userId is null) == (platformUserId is null))
+        {
+            throw new DomainInvariantException("A refresh token must belong to exactly one user type.");
+        }
+
+        if (userId is not null && organizationId is null)
+        {
+            throw new DomainInvariantException("An organization refresh token requires an organization.");
+        }
+
         UserId = userId;
+        PlatformUserId = platformUserId;
+        OrganizationId = organizationId;
+        FamilyId = familyId;
         TokenHash = Guard.Required(tokenHash, nameof(tokenHash), 512);
         ExpiresAt = expiresAt;
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
+    public Guid? PlatformUserId { get; set; }
+    public Guid? OrganizationId { get; set; }
+    public Guid FamilyId { get; set; }
     public string TokenHash { get; set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -115,10 +138,11 @@ public sealed class RefreshToken : BaseEntity
     public Guid? ReplacedByTokenId { get; set; }
     public string? CreatedByIp { get; set; }
     public string? RevokedByIp { get; set; }
+    public string? RevocationReason { get; set; }
 
     public bool IsActive(DateTimeOffset now) => RevokedAt is null && ExpiresAt > now;
 
-    public void Revoke(DateTimeOffset revokedAt, string? revokedByIp, Guid? replacementId)
+    public void Revoke(DateTimeOffset revokedAt, string? revokedByIp, Guid? replacementId, string? reason = null)
     {
         if (RevokedAt is not null)
         {
@@ -128,6 +152,7 @@ public sealed class RefreshToken : BaseEntity
         RevokedAt = revokedAt;
         RevokedByIp = Guard.Optional(revokedByIp, 64);
         ReplacedByTokenId = replacementId;
+        RevocationReason = Guard.Optional(reason, 240);
     }
 }
 

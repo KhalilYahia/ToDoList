@@ -1,5 +1,4 @@
 using OpsManager.Domain.Enums;
-using TaskStatus = OpsManager.Domain.Enums.TaskStatus;
 
 namespace OpsManager.Domain.Tests;
 
@@ -15,15 +14,31 @@ public sealed class EnumStabilityTests
     public void Task_statuses_have_stable_string_codes()
     {
         Assert.Equal(
-            ["Pending", "InProgress", "Blocked", "Completed", "AwaitingApproval", "Approved", "Rejected", "Cancelled"],
-            Enum.GetNames<TaskStatus>());
+            ["NotStarted", "InProgress", "Blocked", "PendingApproval", "Returned", "Completed", "Cancelled"],
+            Enum.GetNames<OperationalTaskStatus>());
+    }
+
+    [Fact]
+    public void Weekdays_align_with_system_day_of_week_values()
+    {
+        Assert.Equal(
+            ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            Enum.GetNames<Weekday>());
+    }
+
+    [Fact]
+    public void Task_assignment_modes_have_stable_wire_codes()
+    {
+        Assert.Equal(
+            ["SingleUser", "SelectedUsers", "AllDepartmentMembers"],
+            Enum.GetNames<TaskAssignmentMode>());
     }
 
     [Fact]
     public void Subscription_statuses_have_stable_string_codes()
     {
         Assert.Equal(
-            ["Trial", "Active", "GracePeriod", "Expired", "Suspended", "Cancelled"],
+            ["Trial", "Active", "GracePeriod", "Expired", "Suspended", "Cancelled", "Complimentary"],
             Enum.GetNames<SubscriptionStatus>());
     }
 }

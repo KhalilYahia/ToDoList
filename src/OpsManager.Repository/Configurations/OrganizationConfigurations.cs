@@ -78,14 +78,23 @@ internal sealed class RefreshTokenConfiguration : EntityConfigurationBase<Refres
     public override void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
         base.Configure(builder);
-        builder.ToTable("refresh_tokens");
+        builder.ToTable("refresh_tokens", table =>
+            table.HasCheckConstraint(
+                "ck_refresh_tokens_owner",
+                "(\"user_id\" IS NOT NULL AND \"platform_user_id\" IS NULL AND \"organization_id\" IS NOT NULL) OR " +
+                "(\"user_id\" IS NULL AND \"platform_user_id\" IS NOT NULL AND \"organization_id\" IS NULL)"));
         builder.Property(entity => entity.TokenHash).HasMaxLength(512).IsRequired();
         builder.Property(entity => entity.CreatedByIp).HasMaxLength(64);
         builder.Property(entity => entity.RevokedByIp).HasMaxLength(64);
+        builder.Property(entity => entity.RevocationReason).HasMaxLength(240);
         builder.HasOne<User>().WithMany().HasForeignKey(entity => entity.UserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<PlatformUser>().WithMany().HasForeignKey(entity => entity.PlatformUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Organization>().WithMany().HasForeignKey(entity => entity.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RefreshToken>().WithMany().HasForeignKey(entity => entity.ReplacedByTokenId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(entity => entity.TokenHash).IsUnique();
         builder.HasIndex(entity => new { entity.UserId, entity.ExpiresAt });
+        builder.HasIndex(entity => new { entity.PlatformUserId, entity.ExpiresAt });
+        builder.HasIndex(entity => entity.FamilyId);
     }
 }
 

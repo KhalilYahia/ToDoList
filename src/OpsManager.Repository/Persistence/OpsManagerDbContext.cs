@@ -25,11 +25,15 @@ public sealed class OpsManagerDbContext(
     public DbSet<TaskTemplate> TaskTemplates => Set<TaskTemplate>();
     public DbSet<TaskTemplateItem> TaskTemplateItems => Set<TaskTemplateItem>();
     public DbSet<TaskTemplateItemAttachment> TaskTemplateItemAttachments => Set<TaskTemplateItemAttachment>();
+    public DbSet<TaskDistribution> TaskDistributions => Set<TaskDistribution>();
     public DbSet<TaskSchedule> TaskSchedules => Set<TaskSchedule>();
-    public DbSet<Domain.Entities.Task> Tasks => Set<Domain.Entities.Task>();
+    public DbSet<TaskScheduleAssignee> TaskScheduleAssignees => Set<TaskScheduleAssignee>();
+    public DbSet<TaskScheduleDate> TaskScheduleDates => Set<TaskScheduleDate>();
+    public DbSet<OperationalTask> Tasks => Set<OperationalTask>();
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
     public DbSet<TaskAttachment> TaskAttachments => Set<TaskAttachment>();
     public DbSet<TaskStatusHistory> TaskStatusHistories => Set<TaskStatusHistory>();
+    public DbSet<TaskAssignmentHistory> TaskAssignmentHistories => Set<TaskAssignmentHistory>();
     public DbSet<OrderTemplate> OrderTemplates => Set<OrderTemplate>();
     public DbSet<OrderTemplateItem> OrderTemplateItems => Set<OrderTemplateItem>();
     public DbSet<DepartmentOrder> DepartmentOrders => Set<DepartmentOrder>();
@@ -135,7 +139,14 @@ public sealed class OpsManagerDbContext(
 
             foreach (IMutableProperty property in entityType.GetProperties())
             {
-                property.SetColumnName(ToSnakeCase(property.Name));
+                property.SetColumnName(
+                    entityType.ClrType == typeof(TaskSchedule) && property.Name == "_weekdays"
+                        ? "weekdays"
+                        : property.ClrType == typeof(uint) &&
+                    property.IsConcurrencyToken &&
+                    property.ValueGenerated == ValueGenerated.OnAddOrUpdate
+                        ? "xmin"
+                        : ToSnakeCase(property.Name));
                 if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
                 {
                     property.SetColumnType("timestamptz");

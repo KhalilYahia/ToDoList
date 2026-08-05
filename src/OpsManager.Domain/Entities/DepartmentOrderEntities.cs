@@ -119,6 +119,61 @@ public sealed class DepartmentOrder : TenantSoftDeletableEntity
     public Guid? LinkedTaskId { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
 
+    public void Submit()
+    {
+        RequireStatus(DepartmentOrderStatus.Draft, DepartmentOrderStatus.Submitted);
+        Status = DepartmentOrderStatus.Submitted;
+    }
+
+    public void Accept(Guid actorId, DateTimeOffset acceptedAt)
+    {
+        RequireStatus(DepartmentOrderStatus.Submitted, DepartmentOrderStatus.Accepted);
+        Status = DepartmentOrderStatus.Accepted;
+        AcceptedAt = acceptedAt;
+        AcceptedBy = actorId;
+    }
+
+    public void StartPreparing()
+    {
+        RequireStatus(DepartmentOrderStatus.Accepted, DepartmentOrderStatus.Preparing);
+        Status = DepartmentOrderStatus.Preparing;
+    }
+
+    public void MarkReady(DateTimeOffset readyAt)
+    {
+        if (Status is not (DepartmentOrderStatus.Accepted or DepartmentOrderStatus.Preparing))
+        {
+            throw new InvalidStateTransitionException(nameof(DepartmentOrder), Status.ToString(), DepartmentOrderStatus.Ready.ToString());
+        }
+
+        Status = DepartmentOrderStatus.Ready;
+        ReadyAt = readyAt;
+    }
+
+    public void Reject(Guid actorId, DateTimeOffset rejectedAt, string reason)
+    {
+        if (Status is not (DepartmentOrderStatus.Submitted or DepartmentOrderStatus.Accepted or DepartmentOrderStatus.Preparing))
+        {
+            throw new InvalidStateTransitionException(nameof(DepartmentOrder), Status.ToString(), DepartmentOrderStatus.Rejected.ToString());
+        }
+
+        Status = DepartmentOrderStatus.Rejected;
+        RejectedAt = rejectedAt;
+        RejectedBy = actorId;
+        RejectionReason = Guard.Required(reason, nameof(reason), 1000);
+    }
+
+    public void Cancel(DateTimeOffset cancelledAt)
+    {
+        if (Status is not (DepartmentOrderStatus.Draft or DepartmentOrderStatus.Submitted))
+        {
+            throw new InvalidStateTransitionException(nameof(DepartmentOrder), Status.ToString(), DepartmentOrderStatus.Cancelled.ToString());
+        }
+
+        Status = DepartmentOrderStatus.Cancelled;
+        CancelledAt = cancelledAt;
+    }
+
     public void MarkDelivered(Guid actorId, DateTimeOffset deliveredAt)
     {
         if (Status is not (DepartmentOrderStatus.Ready or DepartmentOrderStatus.Preparing or DepartmentOrderStatus.Accepted))
@@ -146,6 +201,14 @@ public sealed class DepartmentOrder : TenantSoftDeletableEntity
         Status = DepartmentOrderStatus.Received;
         ReceivedAt = receivedAt;
         ReceivedBy = actorId;
+    }
+
+    private void RequireStatus(DepartmentOrderStatus expected, DepartmentOrderStatus target)
+    {
+        if (Status != expected)
+        {
+            throw new InvalidStateTransitionException(nameof(DepartmentOrder), Status.ToString(), target.ToString());
+        }
     }
 }
 
