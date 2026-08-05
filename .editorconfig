@@ -23,6 +23,13 @@ indent_size = 2
 # Test names intentionally read as behavior sentences.
 dotnet_diagnostic.CA1707.severity = none
 
+# EF Core-generated migration files
 [**/Migrations/*.cs]
-# EF Core owns generated migration source; analyze the model/configuration sources instead.
 generated_code = true
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none
+
+[**/Migrations/**/*.cs]
+generated_code = true
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none
