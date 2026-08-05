@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy global configs and project files for layer caching
-COPY global.json Directory.Build.props OpsManager.sln ./
+COPY global.json Directory.Build.props .editorconfig OpsManager.sln ./
 COPY src/OpsManager.Domain/OpsManager.Domain.csproj src/OpsManager.Domain/
 COPY src/OpsManager.Repository/OpsManager.Repository.csproj src/OpsManager.Repository/
 COPY src/OpsManager.Service/OpsManager.Service.csproj src/OpsManager.Service/
