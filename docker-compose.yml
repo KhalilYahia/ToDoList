@@ -43,6 +43,7 @@ services:
       Cors__AllowedOrigins__1: http://127.0.0.1:3000
       Cors__AllowedOrigins__2: http://localhost
       Cors__AllowedOrigins__3: http://31.177.110.88
+      Cors__AllowedOrigins__4: http://31.177.110.88:3000
     networks:
       - private
       - public
