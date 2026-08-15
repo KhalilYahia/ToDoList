@@ -659,14 +659,22 @@ public sealed class TaskOccurrenceGeneratorService(
         foreach (DateOnly date in TaskOccurrenceCalculator.Calculate(schedule, horizon, specificDates))
         {
             DateTimeOffset start = ToUtc(date, schedule.ExecutionStartTime, timezone);
-            bool exists = await unitOfWork.Repository<TaskDistribution>().AnyAsync(
+
+            TaskDistribution? existingDist = await unitOfWork.Repository<TaskDistribution>().FirstOrDefaultAsync(
                 distribution => distribution.TaskScheduleId == schedule.Id &&
-                    distribution.OccurrenceDate == date &&
-                    distribution.ScheduledStartAt == start,
+                    distribution.OccurrenceDate == date,
                 cancellationToken);
-            if (exists)
+
+            if (existingDist != null)
             {
-                continue;
+                bool hasActiveTasks = await unitOfWork.Repository<OperationalTask>().AnyAsync(
+                    t => t.TaskDistributionId == existingDist.Id && t.Status != OperationalTaskStatus.Cancelled,
+                    cancellationToken);
+
+                if (hasActiveTasks)
+                {
+                    continue;
+                }
             }
 
             DateTimeOffset due = ToUtc(date.AddDays(schedule.ExecutionDueDayOffset), schedule.ExecutionDueTime, timezone);
