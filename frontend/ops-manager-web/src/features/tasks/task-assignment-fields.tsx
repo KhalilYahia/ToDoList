@@ -24,6 +24,7 @@ type Props = {
   members: Schemas["MemberDto"][];
   onModeChange: (mode: AssignmentMode) => void;
   onUserIdsChange: (userIds: string[]) => void;
+  disabled?: boolean;
 };
 
 export function TaskAssignmentFields({
@@ -33,6 +34,7 @@ export function TaskAssignmentFields({
   members,
   onModeChange,
   onUserIdsChange,
+  disabled = false,
 }: Props) {
   const [search, setSearch] = useState("");
   const { identity } = useAuth();
@@ -87,6 +89,7 @@ export function TaskAssignmentFields({
     <div className="grid gap-4 md:col-span-2">
       <Field label="Assignment" required>
         <Select
+          disabled={disabled}
           value={mode}
           onChange={(event) => changeMode(event.target.value as AssignmentMode)}
         >
@@ -105,6 +108,7 @@ export function TaskAssignmentFields({
       ) : mode === "SingleUser" ? (
         <Field label="Assignee" required>
           <Select
+            disabled={disabled}
             value={userIds[0] ?? ""}
             onChange={(event) =>
               onUserIdsChange(event.target.value ? [event.target.value] : [])
@@ -126,6 +130,7 @@ export function TaskAssignmentFields({
         <div className="grid gap-3">
           <Field label="Search assignees">
             <Input
+              disabled={disabled}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search active department employees and supervisors"
@@ -141,44 +146,49 @@ export function TaskAssignmentFields({
               return (
                 <Badge key={userId} tone="info">
                   {member ? `${member.fullName}${roleTag}` : userId}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Remove ${member?.fullName ?? "assignee"}`}
-                    onClick={() => toggle(userId)}
-                  >
-                    <X className="size-3" />
-                  </Button>
+                  {!disabled ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Remove ${member?.fullName ?? "assignee"}`}
+                      onClick={() => toggle(userId)}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  ) : null}
                 </Badge>
               );
             })}
           </div>
-          <div className="border-ink-950/10 grid max-h-52 gap-1 overflow-auto rounded-xl border p-2">
-            {visibleMembers.map((member) => {
-              const role = enumCode("organizationRole", member.role);
-              return (
-                <label
-                  key={member.userId}
-                  className="hover:bg-ink-950/5 flex items-center gap-2 rounded-lg p-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={userIds.includes(member.userId)}
-                    onChange={() => toggle(member.userId)}
-                  />
-                  <span>
-                    {member.fullName}
-                    {role === "Supervisor" ? (
-                      <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-700">
-                        Supervisor
-                      </span>
-                    ) : null}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
+          {!disabled ? (
+            <div className="border-ink-950/10 grid max-h-52 gap-1 overflow-auto rounded-xl border p-2">
+              {visibleMembers.map((member) => {
+                const role = enumCode("organizationRole", member.role);
+                return (
+                  <label
+                    key={member.userId}
+                    className="hover:bg-ink-950/5 flex items-center gap-2 rounded-lg p-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={disabled}
+                      checked={userIds.includes(member.userId)}
+                      onChange={() => toggle(member.userId)}
+                    />
+                    <span>
+                      {member.fullName}
+                      {role === "Supervisor" ? (
+                        <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-700">
+                          Supervisor
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : null}
           <p className="text-ink-600 text-sm">
             Select assignees. Each receives an independent task copy.
           </p>

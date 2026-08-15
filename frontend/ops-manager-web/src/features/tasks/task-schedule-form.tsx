@@ -153,7 +153,23 @@ export function TaskScheduleForm({ id }: { id?: string }) {
     },
   });
 
+  const isReadOnly = Boolean(id);
+
+  const statusMutation = useMutation({
+    mutationFn: (activate: boolean) =>
+      apiRequest(`/task-schedules/${id}/${activate ? "activate" : "deactivate"}`, {
+        method: "POST",
+      }),
+    onSuccess: (_, activate) => {
+      void queryClient.invalidateQueries({ queryKey: ["task-schedules"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast.push(activate ? "Schedule activated." : "Schedule deactivated.");
+      form.setValue("isActive", activate);
+    },
+  });
+
   const toggleWeekday = (day: number) => {
+    if (isReadOnly) return;
     const current = form.getValues("weekdays");
     const next = current.includes(day)
       ? current.filter((d) => d !== day)
@@ -162,6 +178,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
   };
 
   const toggleMonthDay = (day: number) => {
+    if (isReadOnly) return;
     const current = form.getValues("monthDays");
     const next = current.includes(day)
       ? current.filter((d) => d !== day)
@@ -170,7 +187,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
   };
 
   const addSpecificDate = (date: string) => {
-    if (!date) return;
+    if (!date || isReadOnly) return;
     const current = form.getValues("specificDates");
     if (!current.includes(date)) {
       form.setValue("specificDates", [...current, date].sort(), {
@@ -180,6 +197,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
   };
 
   const removeSpecificDate = (date: string) => {
+    if (isReadOnly) return;
     const current = form.getValues("specificDates");
     form.setValue(
       "specificDates",
@@ -200,14 +218,18 @@ export function TaskScheduleForm({ id }: { id?: string }) {
   return (
     <>
       <PageHeader
-        title={id ? "Edit task schedule" : "Create task schedule"}
+        title={id ? "Task schedule details" : "Create task schedule"}
         description={summary}
       />
       <Card className="max-w-4xl">
         <form
           className="grid gap-4 md:grid-cols-2"
           onSubmit={form.handleSubmit(
-            (values) => mutation.mutate(values),
+            (values) => {
+              if (!isReadOnly) {
+                mutation.mutate(values);
+              }
+            },
             (errors) => {
               const firstErrorKey = Object.keys(errors)[0];
               const firstErrorMessage =
@@ -223,8 +245,13 @@ export function TaskScheduleForm({ id }: { id?: string }) {
               <Alert tone="danger">{errorMessage(mutation.error)}</Alert>
             </div>
           ) : null}
+          {statusMutation.error ? (
+            <div className="md:col-span-2">
+              <Alert tone="danger">{errorMessage(statusMutation.error)}</Alert>
+            </div>
+          ) : null}
           <Field label="Task template" required>
-            <Select {...form.register("taskTemplateId")}>
+            <Select disabled={isReadOnly} {...form.register("taskTemplateId")}>
               <option value="">Select template</option>
               {references.taskTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
@@ -234,7 +261,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
             </Select>
           </Field>
           <Field label="Branch" required>
-            <Select {...form.register("branchId")}>
+            <Select disabled={isReadOnly} {...form.register("branchId")}>
               <option value="">Select branch</option>
               {references.branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
@@ -244,7 +271,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
             </Select>
           </Field>
           <Field label="Department" required>
-            <Select {...form.register("departmentId")}>
+            <Select disabled={isReadOnly} {...form.register("departmentId")}>
               <option value="">Select department</option>
               {references.departments.map((department) => (
                 <option key={department.id} value={department.id}>
@@ -258,6 +285,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
             mode={assignmentMode as AssignmentMode}
             userIds={assignmentUserIds}
             members={references.members}
+            disabled={isReadOnly}
             onModeChange={(mode) =>
               form.setValue("assignmentMode", mode, {
                 shouldValidate: true,
@@ -270,7 +298,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
             }
           />
           <Field label="Recurrence type" required>
-            <Select {...form.register("recurrenceType")}>
+            <Select disabled={isReadOnly} {...form.register("recurrenceType")}>
               <option value="Daily">Daily</option>
               <option value="Weekly">Weekly</option>
               <option value="Monthly">Monthly</option>
@@ -289,11 +317,12 @@ export function TaskScheduleForm({ id }: { id?: string }) {
                     <button
                       key={index}
                       type="button"
+                      disabled={isReadOnly}
                       className={`rounded-xl border px-4 py-2 text-sm font-bold transition-all shadow-xs ${
                         weekdays.includes(index)
                           ? "border-indigo-600 bg-indigo-600 text-white shadow-md scale-105"
                           : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
-                      }`}
+                      } ${isReadOnly ? "opacity-75 cursor-not-allowed" : ""}`}
                       onClick={() => toggleWeekday(index)}
                       aria-pressed={weekdays.includes(index)}
                     >
@@ -317,11 +346,12 @@ export function TaskScheduleForm({ id }: { id?: string }) {
                       <button
                         key={day}
                         type="button"
+                        disabled={isReadOnly}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-all ${
                           monthDays.includes(day)
                             ? "border-indigo-600 bg-indigo-600 text-white shadow-md scale-105 ring-2 ring-indigo-200"
                             : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
-                        }`}
+                        } ${isReadOnly ? "opacity-75 cursor-not-allowed" : ""}`}
                         onClick={() => toggleMonthDay(day)}
                         aria-pressed={monthDays.includes(day)}
                       >
@@ -335,6 +365,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
                 <label className="flex items-center gap-2.5 text-sm font-bold text-indigo-950 cursor-pointer">
                   <input
                     type="checkbox"
+                    disabled={isReadOnly}
                     className="size-4 rounded text-indigo-600 focus:ring-indigo-500"
                     checked={includeLastDay}
                     onChange={(e) =>
@@ -357,31 +388,33 @@ export function TaskScheduleForm({ id }: { id?: string }) {
                 error={form.formState.errors.specificDates?.message}
                 required
               >
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  id="specific-date-picker"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addSpecificDate(
-                        (e.target as HTMLInputElement).value,
-                      );
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const input = document.getElementById(
-                      "specific-date-picker",
-                    ) as HTMLInputElement;
-                    addSpecificDate(input.value);
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
+              {!isReadOnly ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    id="specific-date-picker"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSpecificDate(
+                          (e.target as HTMLInputElement).value,
+                        );
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById(
+                        "specific-date-picker",
+                      ) as HTMLInputElement;
+                      addSpecificDate(input.value);
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              ) : null}
               {specificDates.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {specificDates.map((date) => (
@@ -390,14 +423,16 @@ export function TaskScheduleForm({ id }: { id?: string }) {
                       className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-900 shadow-2xs"
                     >
                       {date}
-                      <button
-                        type="button"
-                        className="ml-1 font-bold text-rose-500 hover:text-rose-700 transition-colors"
-                        onClick={() => removeSpecificDate(date)}
-                        aria-label={`Remove ${date}`}
-                      >
-                        &times;
-                      </button>
+                      {!isReadOnly ? (
+                        <button
+                          type="button"
+                          className="ml-1 font-bold text-rose-500 hover:text-rose-700 transition-colors"
+                          onClick={() => removeSpecificDate(date)}
+                          aria-label={`Remove ${date}`}
+                        >
+                          &times;
+                        </button>
+                      ) : null}
                     </span>
                   ))}
                 </div>
@@ -408,23 +443,26 @@ export function TaskScheduleForm({ id }: { id?: string }) {
           <Field label="Recurrence start date" required>
             <Input
               type="date"
+              disabled={isReadOnly}
               {...form.register("recurrenceStartDate")}
             />
           </Field>
           <Field label="Recurrence end date">
-            <Input type="date" {...form.register("recurrenceEndDate")} />
+            <Input type="date" disabled={isReadOnly} {...form.register("recurrenceEndDate")} />
           </Field>
           <Field label="Execution start time" required>
             <Input
               type="time"
+              disabled={isReadOnly}
               {...form.register("executionStartTime")}
             />
           </Field>
           <Field label="Execution due time" required>
-            <Input type="time" {...form.register("executionDueTime")} />
+            <Input type="time" disabled={isReadOnly} {...form.register("executionDueTime")} />
           </Field>
           <Field label="Due day" required>
             <Select
+              disabled={isReadOnly}
               {...form.register("executionDueDayOffset", {
                 valueAsNumber: true,
               })}
@@ -433,14 +471,43 @@ export function TaskScheduleForm({ id }: { id?: string }) {
               <option value={1}>Next day</option>
             </Select>
           </Field>
-          <label className="flex items-center gap-2 text-sm font-semibold md:col-span-2">
-            <input type="checkbox" {...form.register("isActive")} /> Active
-          </label>
-          <div className="md:col-span-2">
-            <Button type="submit" busy={mutation.isPending}>
-              {id ? "Save schedule" : "Create schedule"}
-            </Button>
+          <div className="md:col-span-2 pt-2">
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-slate-700">Status:</span>
+                <span
+                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
+                    form.watch("isActive")
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      : "bg-rose-100 text-rose-800 border border-rose-300"
+                  }`}
+                >
+                  {form.watch("isActive") ? "Active" : "Inactive"}
+                </span>
+              </div>
+              {id ? (
+                <Button
+                  type="button"
+                  variant={form.watch("isActive") ? "danger" : "primary"}
+                  busy={statusMutation.isPending}
+                  onClick={() => statusMutation.mutate(!form.watch("isActive"))}
+                >
+                  {form.watch("isActive") ? "Deactivate schedule" : "Activate schedule"}
+                </Button>
+              ) : (
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input type="checkbox" {...form.register("isActive")} /> Active
+                </label>
+              )}
+            </div>
           </div>
+          {!id ? (
+            <div className="md:col-span-2 pt-2">
+              <Button type="submit" busy={mutation.isPending}>
+                Create schedule
+              </Button>
+            </div>
+          ) : null}
         </form>
       </Card>
     </>
