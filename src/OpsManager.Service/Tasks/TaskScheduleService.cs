@@ -700,43 +700,72 @@ public sealed class TaskOccurrenceGeneratorService(
                 existingDist.UpdateDetails(schedule.BranchId, schedule.DepartmentId, schedule.AssignmentMode, template.Id);
                 unitOfWork.Repository<TaskDistribution>().Update(existingDist);
 
+                PagedResult<OperationalTask> existingTasksResult = await unitOfWork.Repository<OperationalTask>().ListAsync(
+                    t => t.TaskDistributionId == existingDist.Id,
+                    new PageRequest(1, PageRequest.MaximumPageSize),
+                    cancellationToken);
+
+                Dictionary<Guid, OperationalTask> taskMapByAssignee = existingTasksResult.Items
+                    .Where(t => t.AssigneeUserId.HasValue)
+                    .ToDictionary(t => t.AssigneeUserId!.Value, t => t);
+
                 foreach (ResolvedTaskAssignee assignee in assignees)
                 {
-                    OperationalTask newTask = OperationalTask.CreateAssignedCopy(
-                        schedule.OrganizationId,
-                        existingDist.Id,
-                        schedule.BranchId,
-                        schedule.DepartmentId,
-                        assignee.UserId,
-                        template.Id,
-                        schedule.Id,
-                        null,
-                        template.Title,
-                        template.Description,
-                        date,
-                        start,
-                        due,
-                        template.DefaultPriority,
-                        template.RequiresApproval,
-                        schedule.CreatedBy);
-
-                    await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
-                    await unitOfWork.Repository<TaskItem>().AddRangeAsync(
-                        templateItems.Items.Select(item => new TaskItem(
+                    if (taskMapByAssignee.TryGetValue(assignee.UserId, out OperationalTask? existingTask))
+                    {
+                        if (existingTask.Status == OperationalTaskStatus.Cancelled)
+                        {
+                            existingTask.ResetToNotStarted(schedule.CreatedBy, clock.UtcNow, "Schedule recurrence range expanded.");
+                            existingTask.Reschedule(date, start, due, isOverride: false);
+                            existingTask.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
+                            unitOfWork.Repository<OperationalTask>().Update(existingTask);
+                            created++;
+                        }
+                        else
+                        {
+                            existingTask.Reschedule(date, start, due, isOverride: false);
+                            existingTask.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
+                            unitOfWork.Repository<OperationalTask>().Update(existingTask);
+                        }
+                    }
+                    else
+                    {
+                        OperationalTask newTask = OperationalTask.CreateAssignedCopy(
                             schedule.OrganizationId,
-                            newTask.Id,
-                            item.Title,
-                            item.SortOrder,
-                            item.IsRequired,
-                            item.EvidenceMode,
-                            item.Id,
-                            item.Description,
-                            item.ItemType,
-                            item.Options,
-                            item.MainBlockTitle,
-                            item.SubBlockTitle)),
-                        cancellationToken);
-                    created++;
+                            existingDist.Id,
+                            schedule.BranchId,
+                            schedule.DepartmentId,
+                            assignee.UserId,
+                            template.Id,
+                            schedule.Id,
+                            null,
+                            template.Title,
+                            template.Description,
+                            date,
+                            start,
+                            due,
+                            template.DefaultPriority,
+                            template.RequiresApproval,
+                            schedule.CreatedBy);
+
+                        await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
+                        await unitOfWork.Repository<TaskItem>().AddRangeAsync(
+                            templateItems.Items.Select(item => new TaskItem(
+                                schedule.OrganizationId,
+                                newTask.Id,
+                                item.Title,
+                                item.SortOrder,
+                                item.IsRequired,
+                                item.EvidenceMode,
+                                item.Id,
+                                item.Description,
+                                item.ItemType,
+                                item.Options,
+                                item.MainBlockTitle,
+                                item.SubBlockTitle)),
+                            cancellationToken);
+                        created++;
+                    }
                 }
             }
             else

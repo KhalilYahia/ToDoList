@@ -674,6 +674,17 @@ public sealed class OperationalTask : TenantSoftDeletableEntity
         });
     }
 
+    public TaskTransition ResetToNotStarted(Guid actorId, DateTimeOffset occurredAt, string reason)
+    {
+        Guard.NotEmpty(actorId, nameof(actorId));
+        OperationalTaskStatus oldStatus = Status;
+        Status = OperationalTaskStatus.NotStarted;
+        CancelledAt = null;
+        CancelledBy = null;
+        CancellationReason = null;
+        return new TaskTransition(oldStatus, OperationalTaskStatus.NotStarted, actorId, occurredAt, reason);
+    }
+
     public TaskTransition Cancel(Guid actorId, DateTimeOffset occurredAt, string reason)
     {
         string validReason = Guard.Required(reason, nameof(reason), 1000);
