@@ -271,9 +271,9 @@ public sealed class TaskScheduleService(
 
                     foreach (TaskItem oldItem in oldItems.Items)
                     {
-                        unitOfWork.Repository<TaskItem>().Remove(oldItem);
+                        unitOfWork.Repository<TaskItem>().DeletePermanently(oldItem);
                     }
-                    unitOfWork.Repository<OperationalTask>().Remove(oldTask);
+                    unitOfWork.Repository<OperationalTask>().DeletePermanently(oldTask);
                 }
 
                 // Re-create assigned tasks and items using updated schedule, template, and resolved assignees
