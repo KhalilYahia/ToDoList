@@ -103,6 +103,8 @@ export function CollectionPage({
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      void queryClient.invalidateQueries({ queryKey: ["task-schedules"] });
       toast.push("Item cleared successfully.");
     },
   });
