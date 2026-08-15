@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Download,
   Paperclip,
   Plus,
   Trash2,
@@ -52,7 +53,7 @@ import { apiRequest } from "@/lib/api/client";
 import { enumCode, enumCodes, enumValue, statusTone } from "@/lib/api/enums";
 import { ApiError, errorMessage } from "@/lib/api/errors";
 import type { PagedResponse, Schemas } from "@/lib/api/types";
-import { canMutateTenant, tenantRole } from "@/lib/permissions/permissions";
+import { canMutateTenant, isManager, tenantRole } from "@/lib/permissions/permissions";
 import { useAuth } from "@/lib/auth/auth-provider";
 import { queryKeys } from "@/lib/query/query-keys";
 import {
@@ -462,6 +463,174 @@ export function TaskForm() {
   );
 }
 
+export function generateTaskReportHtml(
+  task: Schemas["TaskDto"],
+  reportStats: {
+    totalItems: number;
+    completedCount: number;
+    completionPercentage: number;
+    questionsCount: number;
+    yesCount: number;
+    yesPercentage: number;
+    totalPhotos: number;
+  },
+  itemGroups: Array<{
+    mainBlock: string;
+    mainPrefix: string;
+    subBlocks: Array<{
+      subBlock: string;
+      subPrefix: string;
+      items: Array<{
+        item: Schemas["TaskItemDto"];
+        itemPrefix: string;
+      }>;
+    }>;
+  }>,
+  locale: string
+) {
+  let itemsHtml = "";
+  itemGroups.forEach((group) => {
+    if (group.mainBlock) {
+      itemsHtml += `<div class="main-block">${group.mainPrefix} ${group.mainBlock}</div>`;
+    }
+    group.subBlocks.forEach((sub) => {
+      if (sub.subBlock) {
+        itemsHtml += `<div class="sub-block">${sub.subPrefix} ${sub.subBlock}</div>`;
+      }
+      sub.items.forEach(({ item, itemPrefix }) => {
+        const completed = enumCode("taskItemStatus", item.status) === "Completed";
+        const itemType = item.itemType ? enumCode("taskItemType", item.itemType) : "Question";
+        const attachments = (item as any).attachments ?? [];
+
+        let responseHtml = "";
+        if (itemType === "Question") {
+          const isYes = item.value === "Yes" || item.value === "Да";
+          const isNo = item.value === "No" || item.value === "Нет";
+          if (isYes) responseHtml = '<span class="badge badge-success">✓ Да (Yes)</span>';
+          else if (isNo) responseHtml = '<span class="badge badge-danger">✗ Нет (No)</span>';
+          else responseHtml = '<span class="badge badge-danger">✗ Нет ответа</span>';
+        } else if (item.value) {
+          responseHtml = `<div><strong>Ответ:</strong> ${item.value}</div>`;
+        } else {
+          responseHtml = '<div><strong>Ответ:</strong> —</div>';
+        }
+
+        let attHtml = "";
+        if (attachments.length > 0) {
+          attHtml = '<div style="margin-top:10px; font-weight:700; font-size:11px; color:#4f46e5; text-transform:uppercase;">Прикрепленные файлы и фото:</div><div class="attachments-container">';
+          attachments.forEach((att: any) => {
+            const fileTypeLower = (att.fileType || "").toLowerCase();
+            const urlLower = (att.fileUrl || "").toLowerCase();
+            const isImage = fileTypeLower.startsWith("image/") || /\.(png|jpe?g|webp|gif|svg)($|\?)/.test(urlLower);
+            if (isImage && att.fileUrl) {
+              attHtml += `<div style="text-align:center;"><img src="${att.fileUrl}" class="att-img" alt="Evidence" /><br/><a href="${att.fileUrl}" target="_blank" style="font-size:10px; color:#4f46e5; font-weight:bold; text-decoration:none;">Открыть ↗</a></div>`;
+            } else if (att.fileUrl) {
+              attHtml += `<a href="${att.fileUrl}" target="_blank" style="font-size:11px; color:#4f46e5; font-weight:bold; padding:8px 12px; background:#e0e7ff; border-radius:6px; text-decoration:none;">📄 ${att.fileName || "Файл доказательства"} ↗</a>`;
+            }
+          });
+          attHtml += '</div>';
+        }
+
+        itemsHtml += `
+          <div class="item-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div class="item-title">${itemPrefix} ${item.title}</div>
+              <span class="badge ${completed ? 'badge-success' : 'badge-warning'}">${completed ? '✓ Готово' : 'В процессе'}</span>
+            </div>
+            ${item.description ? `<div style="font-size:12px; color:#64748b; margin-top:3px;">${item.description}</div>` : ''}
+            <div class="item-response">${responseHtml}</div>
+            ${item.note ? `<div style="font-size:12px; color:#475569; margin-top:6px; font-style:italic;">Заметка: ${item.note}</div>` : ''}
+            ${attHtml}
+          </div>
+        `;
+      });
+    });
+  });
+
+  return `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Отчет по задаче - ${task.title}</title>
+  <style>
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; line-height: 1.5; padding: 32px; background: #ffffff; max-width: 920px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #4f46e5; padding-bottom: 16px; margin-bottom: 20px; }
+    .title { font-size: 24px; font-weight: 900; color: #1e1b4b; margin: 0; }
+    .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 600; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #ffe4e6; color: #9f1239; }
+    .badge-info { background: #e0e7ff; color: #3730a3; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+    .meta-item label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+    .meta-item div { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat-card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; background: #fafafa; }
+    .stat-title { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; }
+    .stat-val { font-size: 22px; font-weight: 900; color: #0f172a; margin-top: 2px; }
+    .main-block { font-size: 16px; font-weight: 900; color: #1e1b4b; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; margin-top: 24px; margin-bottom: 12px; }
+    .sub-block { font-size: 14px; font-weight: 800; color: #334155; margin-top: 14px; margin-bottom: 8px; }
+    .item-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; background: #ffffff; page-break-inside: avoid; }
+    .item-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+    .item-response { margin-top: 6px; font-size: 13px; font-weight: 600; }
+    .attachments-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    .att-img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; }
+    .btn-print { background: #4f46e5; color: white; border: none; padding: 10px 20px; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .btn-print:hover { background: #4338ca; }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+    <button class="btn-print" onclick="window.print()">🖨️ Печать / Сохранить в PDF (Print / Save as PDF)</button>
+  </div>
+  <div class="header">
+    <div>
+      <h1 class="title">${task.title}</h1>
+      <div class="subtitle">Полный отчет по задаче (Executive Task Report)</div>
+    </div>
+    <div>
+      <span class="badge badge-info">${enumCode("taskStatus", task.status)}</span>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item"><label>Отдел</label><div>${task.departmentName || "—"}</div></div>
+    <div class="meta-item"><label>Исполнитель</label><div>${task.assigneeName || "—"}</div></div>
+    <div class="meta-item"><label>Дата события</label><div>${task.occurrenceDate || "—"}</div></div>
+    <div class="meta-item"><label>Срок выполнения (Due)</label><div>${formatDateTime(task.dueAt, locale)}</div></div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-title">Результат "Да (Yes)"</div>
+      <div class="stat-val" style="color: ${reportStats.yesPercentage >= 80 ? '#166534' : reportStats.yesPercentage >= 50 ? '#92400e' : '#9f1239'}">${reportStats.yesPercentage}%</div>
+      <div style="font-size: 11px; color: #64748b; margin-top:2px;">${reportStats.yesCount} из ${reportStats.questionsCount} Да</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Завершено пунктов</div>
+      <div class="stat-val" style="color: #4f46e5">${reportStats.completionPercentage}%</div>
+      <div style="font-size: 11px; color: #64748b; margin-top:2px;">${reportStats.completedCount} из ${reportStats.totalItems} готово</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Прикрепленные фото / файлы</div>
+      <div class="stat-val">${reportStats.totalPhotos}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top:2px;">доказательств добавлено</div>
+    </div>
+  </div>
+
+  <h2 style="font-size: 16px; font-weight: 900; margin-bottom: 12px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">Чек-лист и ответы (Checklist & Answers)</h2>
+  ${itemsHtml}
+</body>
+</html>
+  `;
+}
+
 export function TaskDetail({ id }: { id: string }) {
   const locale = useLocale();
   const tCommon = useTranslations("Common");
@@ -684,6 +853,18 @@ export function TaskDetail({ id }: { id: string }) {
     };
   })();
 
+  const isManagerUser = isManager(identity);
+
+  function handleDownloadReport() {
+    if (!task) return;
+    const html = generateTaskReportHtml(task, reportStats, itemGroups, locale);
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  }
+
   return (
     <>
       {isOverdue ? (
@@ -710,6 +891,15 @@ export function TaskDetail({ id }: { id: string }) {
               <Badge tone="danger">Просрочено (Missed)</Badge>
             ) : null}
             <Badge tone={statusTone(status)}>{status}</Badge>
+            {isManagerUser ? (
+              <Button
+                variant="secondary"
+                onClick={handleDownloadReport}
+                className="inline-flex items-center gap-2"
+              >
+                <Download className="size-4 text-indigo-600" /> Скачать отчет
+              </Button>
+            ) : null}
             {canManage ? (
               <Button
                 variant="danger"
