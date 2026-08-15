@@ -257,7 +257,7 @@ public sealed class TaskScheduleAssignee : TenantAuditableEntity
     public Guid UserId { get; private set; }
 }
 
-public sealed class TaskSchedule : TenantAuditableEntity
+public sealed class TaskSchedule : TenantSoftDeletableEntity
 {
     private Weekday[] _weekdays = [];
     private IReadOnlyList<Weekday>? _weekdaysView;
