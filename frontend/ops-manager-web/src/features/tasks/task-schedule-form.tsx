@@ -206,7 +206,17 @@ export function TaskScheduleForm({ id }: { id?: string }) {
       <Card className="max-w-4xl">
         <form
           className="grid gap-4 md:grid-cols-2"
-          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+          onSubmit={form.handleSubmit(
+            (values) => mutation.mutate(values),
+            (errors) => {
+              const firstErrorKey = Object.keys(errors)[0];
+              const firstErrorMessage =
+                errors[firstErrorKey as keyof typeof errors]?.message;
+              if (firstErrorMessage) {
+                toast.push(String(firstErrorMessage));
+              }
+            },
+          )}
         >
           {mutation.error ? (
             <div className="md:col-span-2">

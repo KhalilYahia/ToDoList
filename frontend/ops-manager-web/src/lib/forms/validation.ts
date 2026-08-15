@@ -100,13 +100,6 @@ export const scheduleSchema = z
         message: "Select at least one weekday.",
       });
     }
-    if (values.recurrenceType !== "Weekly" && values.weekdays.length > 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["weekdays"],
-        message: "Weekdays are only valid for weekly recurrence.",
-      });
-    }
     if (
       values.recurrenceType === "Monthly" &&
       values.monthDays.length === 0 &&
@@ -120,26 +113,6 @@ export const scheduleSchema = z
       });
     }
     if (
-      values.recurrenceType !== "Monthly" &&
-      values.monthDays.length > 0
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["monthDays"],
-        message: "Month days are only valid for monthly recurrence.",
-      });
-    }
-    if (
-      values.recurrenceType !== "Monthly" &&
-      values.includeLastDayOfMonth
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["includeLastDayOfMonth"],
-        message: "Last day of month is only valid for monthly recurrence.",
-      });
-    }
-    if (
       values.recurrenceType === "SpecificDates" &&
       values.specificDates.length === 0
     ) {
@@ -147,16 +120,6 @@ export const scheduleSchema = z
         code: "custom",
         path: ["specificDates"],
         message: "Select at least one specific date.",
-      });
-    }
-    if (
-      values.recurrenceType !== "SpecificDates" &&
-      values.specificDates.length > 0
-    ) {
-      context.addIssue({
-        code: "custom",
-        path: ["specificDates"],
-        message: "Specific dates are only valid for SpecificDates recurrence.",
       });
     }
     if (
