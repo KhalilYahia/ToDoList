@@ -685,33 +685,91 @@ public sealed class TaskOccurrenceGeneratorService(
                 schedule.AssignmentMode,
                 configuredAssignees,
                 cancellationToken);
-            TaskDistributionResponse result = await distributionCreator.CreateAsync(
-                new TaskDistributionCreation(
-                    schedule.OrganizationId,
-                    schedule.BranchId,
-                    schedule.DepartmentId,
-                    template.Id,
-                    schedule.Id,
-                    null,
-                    schedule.AssignmentMode,
-                    assignees,
-                    template.Title,
-                    template.Description,
-                    date,
-                    start,
-                    due,
-                    template.DefaultPriority,
-                    template.RequiresApproval,
-                    schedule.CreatedBy,
-                    templateItems.Items.Select(item => new TaskCopyItemDefinition(
-                        item.Id,
-                        item.Title,
-                        item.Description,
-                        item.SortOrder,
-                        item.IsRequired,
-                        item.EvidenceMode)).ToArray()),
-                cancellationToken);
-            created += result.CreatedTaskCount;
+
+            if (assignees.Count == 0)
+            {
+                continue;
+            }
+
+            if (existingDist != null)
+            {
+                existingDist.Reschedule(start, due);
+                existingDist.UpdateDetails(schedule.BranchId, schedule.DepartmentId, schedule.AssignmentMode, template.Id);
+                unitOfWork.Repository<TaskDistribution>().Update(existingDist);
+
+                foreach (ResolvedTaskAssignee assignee in assignees)
+                {
+                    OperationalTask newTask = OperationalTask.CreateAssignedCopy(
+                        schedule.OrganizationId,
+                        existingDist.Id,
+                        schedule.BranchId,
+                        schedule.DepartmentId,
+                        assignee.UserId,
+                        template.Id,
+                        schedule.Id,
+                        null,
+                        template.Title,
+                        template.Description,
+                        date,
+                        start,
+                        due,
+                        template.DefaultPriority,
+                        template.RequiresApproval,
+                        schedule.CreatedBy);
+
+                    await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
+                    await unitOfWork.Repository<TaskItem>().AddRangeAsync(
+                        templateItems.Items.Select(item => new TaskItem(
+                            schedule.OrganizationId,
+                            newTask.Id,
+                            item.Title,
+                            item.SortOrder,
+                            item.IsRequired,
+                            item.EvidenceMode,
+                            item.Id,
+                            item.Description,
+                            item.ItemType,
+                            item.Options,
+                            item.MainBlockTitle,
+                            item.SubBlockTitle)),
+                        cancellationToken);
+                    created++;
+                }
+            }
+            else
+            {
+                TaskDistributionResponse result = await distributionCreator.CreateAsync(
+                    new TaskDistributionCreation(
+                        schedule.OrganizationId,
+                        schedule.BranchId,
+                        schedule.DepartmentId,
+                        template.Id,
+                        schedule.Id,
+                        null,
+                        schedule.AssignmentMode,
+                        assignees,
+                        template.Title,
+                        template.Description,
+                        date,
+                        start,
+                        due,
+                        template.DefaultPriority,
+                        template.RequiresApproval,
+                        schedule.CreatedBy,
+                        templateItems.Items.Select(item => new TaskCopyItemDefinition(
+                            item.Id,
+                            item.Title,
+                            item.Description,
+                            item.SortOrder,
+                            item.IsRequired,
+                            item.EvidenceMode,
+                            item.ItemType,
+                            item.Options,
+                            item.MainBlockTitle,
+                            item.SubBlockTitle)).ToArray()),
+                    cancellationToken);
+                created += result.CreatedTaskCount;
+            }
         }
         return new OccurrenceGenerationResult(schedule.Id, created, horizon);
     }
