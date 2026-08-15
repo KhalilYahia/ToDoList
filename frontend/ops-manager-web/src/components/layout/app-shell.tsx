@@ -30,6 +30,7 @@ import { useAuth } from "@/lib/auth/auth-provider";
 import {
   isManager,
   isPlatformAdministrator,
+  isSupervisorOrManager,
   subscriptionAccessMode,
   tenantRole,
 } from "@/lib/permissions/permissions";
@@ -202,11 +203,15 @@ export function AppShell({
           label: t("pastTasks"),
           icon: ClipboardCheck,
         },
-        {
-          href: "/my-tasks",
-          label: t("myTasks"),
-          icon: ClipboardCheck,
-        },
+        ...(isSupervisorOrManager(identity)
+          ? [
+              {
+                href: "/my-tasks",
+                label: t("myTasks"),
+                icon: ClipboardCheck,
+              },
+            ]
+          : []),
       ],
     },
     { href: "/department-orders", label: t("orders"), icon: PackageCheck },
