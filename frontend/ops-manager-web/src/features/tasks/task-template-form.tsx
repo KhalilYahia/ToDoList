@@ -54,6 +54,7 @@ const itemSchema = z.object({
   options: z.string().optional(),
   mainBlockTitle: z.string().optional(),
   subBlockTitle: z.string().optional(),
+  maxAttachments: z.number().min(1).max(5).optional(),
 });
 const templateSchema = z.object({
   defaultDepartmentId: z.string(),
@@ -77,6 +78,7 @@ function emptyItem(itemType = "SingleLineText", mainBlock = "", subBlock = ""): 
     options: itemType === "MultipleChoice" ? "Option 1, Option 2, Option 3" : "",
     mainBlockTitle: mainBlock,
     subBlockTitle: subBlock,
+    maxAttachments: 5,
   };
 }
 
@@ -130,7 +132,7 @@ export function TaskTemplateForm({ id }: { id?: string }) {
           : String(query.data.defaultDurationMinutes),
       requiresApproval: query.data.requiresApproval,
       isActive: query.data.isActive,
-      items: query.data.items.map((item) => ({
+      items: query.data.items.map((item: any) => ({
         id: item.id,
         title: item.title,
         description: item.description ?? "",
@@ -143,6 +145,7 @@ export function TaskTemplateForm({ id }: { id?: string }) {
         options: item.options ?? "",
         mainBlockTitle: item.mainBlockTitle ?? "",
         subBlockTitle: item.subBlockTitle ?? "",
+        maxAttachments: item.maxAttachments ? Number(item.maxAttachments) : 5,
       })),
     });
   }, [form, query.data]);
