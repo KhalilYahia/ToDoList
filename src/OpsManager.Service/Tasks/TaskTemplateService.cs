@@ -170,7 +170,8 @@ public sealed class TaskTemplateService(
                 item.ItemType,
                 item.Options,
                 item.MainBlockTitle,
-                item.SubBlockTitle)),
+                item.SubBlockTitle,
+                item.MaxAttachments)),
             cancellationToken);
         await auditService.RecordTenantAsync(
             organizationId,
@@ -429,7 +430,8 @@ public sealed class TaskTemplateService(
             request.ItemType,
             request.Options,
             request.MainBlockTitle,
-            request.SubBlockTitle);
+            request.SubBlockTitle,
+            request.MaxAttachments);
     }
 
     private static void Apply(TaskTemplate template, SaveTaskTemplateRequest request)
@@ -462,7 +464,8 @@ public sealed class TaskTemplateService(
             request.ItemType,
             request.Options,
             request.MainBlockTitle,
-            request.SubBlockTitle);
+            request.SubBlockTitle,
+            request.MaxAttachments);
     }
 
     private static void ValidateItem(ChecklistDefinitionRequest request)
@@ -471,5 +474,5 @@ public sealed class TaskTemplateService(
     }
 
     private static ChecklistDefinitionDto Map(TaskTemplateItem item) =>
-        new(item.Id, item.Title, item.Description, item.SortOrder, item.IsRequired, item.EvidenceMode, item.ItemType, item.Options, item.MainBlockTitle, item.SubBlockTitle);
+        new(item.Id, item.Title, item.Description, item.SortOrder, item.IsRequired, item.EvidenceMode, item.ItemType, item.Options, item.MainBlockTitle, item.SubBlockTitle, item.MaxAttachments);
 }

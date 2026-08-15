@@ -178,7 +178,8 @@ public sealed record TaskCopyItemDefinition(
     TaskItemType ItemType = TaskItemType.SingleLineText,
     string? Options = null,
     string? MainBlockTitle = null,
-    string? SubBlockTitle = null);
+    string? SubBlockTitle = null,
+    int MaxAttachments = 5);
 
 public sealed record TaskDistributionCreation(
     Guid OrganizationId,
@@ -272,7 +273,8 @@ public sealed class TaskDistributionCreator(
                             itemType: item.ItemType,
                             options: item.Options,
                             mainBlockTitle: item.MainBlockTitle,
-                            subBlockTitle: item.SubBlockTitle)),
+                            subBlockTitle: item.SubBlockTitle,
+                            maxAttachments: item.MaxAttachments)),
                         cancellationToken);
                     await unitOfWork.Repository<TaskStatusHistory>().AddAsync(
                         TaskStatusHistory.Created(

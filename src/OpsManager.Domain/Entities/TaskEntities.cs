@@ -82,11 +82,12 @@ public sealed class TaskTemplateItem : TenantAuditableEntity
         TaskItemType itemType = TaskItemType.SingleLineText,
         string? options = null,
         string? mainBlockTitle = null,
-        string? subBlockTitle = null)
+        string? subBlockTitle = null,
+        int maxAttachments = 5)
     {
         OrganizationId = Guard.NotEmpty(organizationId, nameof(organizationId));
         TaskTemplateId = Guard.NotEmpty(taskTemplateId, nameof(taskTemplateId));
-        Update(title, description, sortOrder, isRequired, evidenceMode, itemType, options, mainBlockTitle, subBlockTitle);
+        Update(title, description, sortOrder, isRequired, evidenceMode, itemType, options, mainBlockTitle, subBlockTitle, maxAttachments);
     }
 
     public Guid TaskTemplateId { get; private set; }
@@ -99,6 +100,7 @@ public sealed class TaskTemplateItem : TenantAuditableEntity
     public string? Options { get; private set; }
     public string? MainBlockTitle { get; private set; }
     public string? SubBlockTitle { get; private set; }
+    public int MaxAttachments { get; private set; } = 5;
     public bool IsActive { get; private set; } = true;
 
     public void Update(
@@ -110,7 +112,8 @@ public sealed class TaskTemplateItem : TenantAuditableEntity
         TaskItemType itemType = TaskItemType.SingleLineText,
         string? options = null,
         string? mainBlockTitle = null,
-        string? subBlockTitle = null)
+        string? subBlockTitle = null,
+        int maxAttachments = 5)
     {
         string effectiveTitle = string.IsNullOrWhiteSpace(title)
             ? (!string.IsNullOrWhiteSpace(mainBlockTitle) ? mainBlockTitle : (!string.IsNullOrWhiteSpace(subBlockTitle) ? subBlockTitle : title))
@@ -124,6 +127,7 @@ public sealed class TaskTemplateItem : TenantAuditableEntity
         Options = Guard.Optional(options, 4000);
         MainBlockTitle = Guard.Optional(mainBlockTitle, 240);
         SubBlockTitle = Guard.Optional(subBlockTitle, 240);
+        MaxAttachments = Math.Clamp(maxAttachments <= 0 ? 5 : maxAttachments, 1, 5);
     }
 
     public void Reorder(int sortOrder) => SortOrder = Guard.NonNegative(sortOrder, nameof(sortOrder));
@@ -779,7 +783,8 @@ public sealed class TaskItem : TenantAuditableEntity
         TaskItemType itemType = TaskItemType.SingleLineText,
         string? options = null,
         string? mainBlockTitle = null,
-        string? subBlockTitle = null)
+        string? subBlockTitle = null,
+        int maxAttachments = 5)
     {
         OrganizationId = Guard.NotEmpty(organizationId, nameof(organizationId));
         TaskId = Guard.NotEmpty(taskId, nameof(taskId));
@@ -801,6 +806,7 @@ public sealed class TaskItem : TenantAuditableEntity
         Options = Guard.Optional(options, 4000);
         MainBlockTitle = Guard.Optional(mainBlockTitle, 240);
         SubBlockTitle = Guard.Optional(subBlockTitle, 240);
+        MaxAttachments = Math.Clamp(maxAttachments <= 0 ? 5 : maxAttachments, 1, 5);
     }
 
     public void Update(
@@ -812,7 +818,8 @@ public sealed class TaskItem : TenantAuditableEntity
         TaskItemType itemType = TaskItemType.SingleLineText,
         string? options = null,
         string? mainBlockTitle = null,
-        string? subBlockTitle = null)
+        string? subBlockTitle = null,
+        int maxAttachments = 5)
     {
         string effectiveTitle = string.IsNullOrWhiteSpace(title)
             ? (!string.IsNullOrWhiteSpace(mainBlockTitle) ? mainBlockTitle : (!string.IsNullOrWhiteSpace(subBlockTitle) ? subBlockTitle : title))
@@ -826,6 +833,7 @@ public sealed class TaskItem : TenantAuditableEntity
         Options = Guard.Optional(options, 4000);
         MainBlockTitle = Guard.Optional(mainBlockTitle, 240);
         SubBlockTitle = Guard.Optional(subBlockTitle, 240);
+        MaxAttachments = Math.Clamp(maxAttachments <= 0 ? 5 : maxAttachments, 1, 5);
     }
 
     public Guid TaskId { get; private set; }
@@ -839,6 +847,7 @@ public sealed class TaskItem : TenantAuditableEntity
     public string? Options { get; private set; }
     public string? MainBlockTitle { get; private set; }
     public string? SubBlockTitle { get; private set; }
+    public int MaxAttachments { get; private set; } = 5;
     public string? Value { get; private set; }
     public TaskItemStatus Status { get; private set; } = TaskItemStatus.Pending;
     public Guid? CompletedBy { get; private set; }

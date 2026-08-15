@@ -217,7 +217,8 @@ public sealed class TaskService(
                     item.ItemType,
                     item.Options,
                     item.MainBlockTitle,
-                    item.SubBlockTitle))
+                    item.SubBlockTitle,
+                    item.MaxAttachments))
                 .ToArray();
         }
 
@@ -471,7 +472,8 @@ public sealed class TaskService(
                     item.ItemType,
                     item.Options,
                     item.MainBlockTitle,
-                    item.SubBlockTitle)).ToArray()),
+                    item.SubBlockTitle,
+                    item.MaxAttachments)).ToArray()),
             cancellationToken);
     }
 
@@ -525,9 +527,15 @@ public sealed class TaskService(
         await subscriptionAccess.EnsureWriteAllowedAsync(organizationId, cancellationToken: cancellationToken);
         OperationalTask task = await GetAuthorizedAsync(taskId, TaskAccess.Execution, cancellationToken);
         EnsureMutable(task);
-        _ = await unitOfWork.Repository<TaskItem>()
+        TaskItem targetItem = await unitOfWork.Repository<TaskItem>()
             .FirstOrDefaultAsync(item => item.Id == itemId && item.TaskId == taskId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(TaskItem));
+        int existingCount = await unitOfWork.Repository<TaskAttachment>()
+            .CountAsync(attachment => attachment.TaskId == taskId && attachment.TaskItemId == itemId, cancellationToken);
+        if (existingCount >= targetItem.MaxAttachments)
+        {
+            throw new ConflictException($"Maximum attachment limit ({targetItem.MaxAttachments}) reached for this item.", "max_attachments_exceeded");
+        }
         StoredFile file = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
         TaskAttachment attachment = new(
             organizationId,
@@ -818,7 +826,8 @@ public sealed class TaskService(
             request.ItemType,
             request.Options,
             request.MainBlockTitle,
-            request.SubBlockTitle);
+            request.SubBlockTitle,
+            request.MaxAttachments);
 
     private static TaskItemDto Map(TaskItem item, int attachmentCount, IReadOnlyList<TaskAttachmentDto>? attachments = null) =>
         new(
@@ -838,7 +847,8 @@ public sealed class TaskService(
             item.MainBlockTitle,
             item.SubBlockTitle,
             item.Value,
-            attachments);
+            attachments,
+            item.MaxAttachments);
 
     private static void EnsureMutable(OperationalTask task)
     {

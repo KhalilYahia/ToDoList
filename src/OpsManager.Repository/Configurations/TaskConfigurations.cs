@@ -32,6 +32,7 @@ internal sealed class TaskTemplateItemConfiguration : EntityConfigurationBase<Ta
         builder.Property(entity => entity.Title).HasMaxLength(240).IsRequired();
         builder.Property(entity => entity.Description).HasMaxLength(4000);
         builder.Property(entity => entity.EvidenceMode).AsString();
+        builder.Property(entity => entity.MaxAttachments).HasDefaultValue(5);
         builder.Property(entity => entity.IsActive).HasDefaultValue(true);
         builder.HasOne<TaskTemplate>().WithMany().HasForeignKey(entity => entity.TaskTemplateId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(entity => new { entity.TaskTemplateId, entity.SortOrder })
@@ -211,6 +212,7 @@ internal sealed class TaskItemConfiguration : EntityConfigurationBase<TaskItem>
         builder.Property(entity => entity.Title).HasMaxLength(240).IsRequired();
         builder.Property(entity => entity.Description).HasMaxLength(4000);
         builder.Property(entity => entity.EvidenceMode).AsString();
+        builder.Property(entity => entity.MaxAttachments).HasDefaultValue(5);
         builder.Property(entity => entity.Status).AsString();
         builder.Property(entity => entity.Note).HasMaxLength(2000);
         builder.Property(entity => entity.Version).HasColumnName("xmin").IsRowVersion();

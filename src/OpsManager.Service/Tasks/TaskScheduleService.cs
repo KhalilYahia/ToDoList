@@ -426,7 +426,8 @@ public sealed class TaskScheduleService(
                     templateItem.ItemType,
                     templateItem.Options,
                     templateItem.MainBlockTitle,
-                    templateItem.SubBlockTitle);
+                    templateItem.SubBlockTitle,
+                    templateItem.MaxAttachments);
                 unitOfWork.Repository<TaskItem>().Update(existingItem);
             }
             else
@@ -443,7 +444,8 @@ public sealed class TaskScheduleService(
                     templateItem.ItemType,
                     templateItem.Options,
                     templateItem.MainBlockTitle,
-                    templateItem.SubBlockTitle);
+                    templateItem.SubBlockTitle,
+                    templateItem.MaxAttachments);
                 await unitOfWork.Repository<TaskItem>().AddAsync(newItem, cancellationToken);
             }
         }
@@ -856,7 +858,8 @@ public sealed class TaskOccurrenceGeneratorService(
                                 item.ItemType,
                                 item.Options,
                                 item.MainBlockTitle,
-                                item.SubBlockTitle)),
+                                item.SubBlockTitle,
+                                item.MaxAttachments)),
                             cancellationToken);
                         created++;
                     }
@@ -893,7 +896,8 @@ public sealed class TaskOccurrenceGeneratorService(
                             item.ItemType,
                             item.Options,
                             item.MainBlockTitle,
-                            item.SubBlockTitle)).ToArray()),
+                            item.SubBlockTitle,
+                            item.MaxAttachments)).ToArray()),
                     cancellationToken);
                 created += result.CreatedTaskCount;
             }

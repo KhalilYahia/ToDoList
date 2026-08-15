@@ -12,7 +12,8 @@ public sealed record ChecklistDefinitionRequest(
     TaskItemType ItemType = TaskItemType.SingleLineText,
     string? Options = null,
     string? MainBlockTitle = null,
-    string? SubBlockTitle = null);
+    string? SubBlockTitle = null,
+    int MaxAttachments = 5);
 
 public sealed record ChecklistDefinitionDto(
     Guid Id,
@@ -24,7 +25,8 @@ public sealed record ChecklistDefinitionDto(
     TaskItemType ItemType = TaskItemType.SingleLineText,
     string? Options = null,
     string? MainBlockTitle = null,
-    string? SubBlockTitle = null);
+    string? SubBlockTitle = null,
+    int MaxAttachments = 5);
 
 public sealed record SaveTaskTemplateRequest(
     Guid? DefaultDepartmentId,
@@ -68,7 +70,8 @@ public sealed record TaskItemDto(
     string? MainBlockTitle = null,
     string? SubBlockTitle = null,
     string? Value = null,
-    IReadOnlyList<TaskAttachmentDto>? Attachments = null);
+    IReadOnlyList<TaskAttachmentDto>? Attachments = null,
+    int MaxAttachments = 5);
 
 public sealed record TaskDto(
     Guid Id,
