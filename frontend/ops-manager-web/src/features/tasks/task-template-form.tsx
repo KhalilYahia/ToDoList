@@ -173,6 +173,7 @@ export function TaskTemplateForm({ id }: { id?: string }) {
               options: item.options || null,
               mainBlockTitle: item.mainBlockTitle || null,
               subBlockTitle: item.subBlockTitle || null,
+              maxAttachments: (item as any).maxAttachments ? Number((item as any).maxAttachments) : 5,
             })),
           },
         },

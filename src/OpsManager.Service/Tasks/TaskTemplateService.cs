@@ -107,7 +107,7 @@ public sealed class TaskTemplateService(
         unitOfWork.Repository<TaskTemplate>().Update(template);
 
         PagedResult<TaskTemplateItem> existing = await unitOfWork.Repository<TaskTemplateItem>().ListAsync(
-            item => item.TaskTemplateId == id,
+            item => item.TaskTemplateId == id && item.IsActive,
             new PageRequest(1, PageRequest.MaximumPageSize),
             cancellationToken);
         foreach (TaskTemplateItem item in existing.Items)
@@ -115,6 +115,7 @@ public sealed class TaskTemplateService(
             item.Deactivate();
             unitOfWork.Repository<TaskTemplateItem>().Update(item);
         }
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await AddItemsAsync(template, request.Items, cancellationToken);
         await auditService.RecordTenantAsync(
@@ -387,9 +388,14 @@ public sealed class TaskTemplateService(
         IReadOnlyList<ChecklistDefinitionRequest> requests,
         CancellationToken cancellationToken)
     {
-        await unitOfWork.Repository<TaskTemplateItem>().AddRangeAsync(
-            requests.Select(request => CreateItem(template.OrganizationId, template.Id, request)),
-            cancellationToken);
+        int sortOrder = 0;
+        List<TaskTemplateItem> items = new();
+        foreach (ChecklistDefinitionRequest request in requests)
+        {
+            ChecklistDefinitionRequest normalized = request with { SortOrder = sortOrder++ };
+            items.Add(CreateItem(template.OrganizationId, template.Id, normalized));
+        }
+        await unitOfWork.Repository<TaskTemplateItem>().AddRangeAsync(items, cancellationToken);
     }
 
     private async Task<PagedResult<TaskTemplateItem>> GetItemsAsync(Guid templateId, CancellationToken cancellationToken) =>
