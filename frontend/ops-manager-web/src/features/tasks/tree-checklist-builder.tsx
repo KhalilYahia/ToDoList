@@ -67,7 +67,10 @@ export function TreeChecklistBuilder({
   }
 
   function handleAddItem(type: string) {
-    const newItem = createEmptyItem(type);
+    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+    const mainBlock = lastItem?.mainBlockTitle || "";
+    const subBlock = lastItem?.subBlockTitle || "";
+    const newItem = createEmptyItem(type, mainBlock, subBlock);
     onAppend(newItem);
     setIsTypeModalOpen(false);
     setEditingIndex(items.length);

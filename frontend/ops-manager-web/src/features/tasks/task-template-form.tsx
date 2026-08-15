@@ -67,7 +67,7 @@ const templateSchema = z.object({
 });
 type TemplateValues = z.infer<typeof templateSchema>;
 
-function emptyItem(itemType = "SingleLineText"): TemplateValues["items"][number] {
+function emptyItem(itemType = "SingleLineText", mainBlock = "", subBlock = ""): TemplateValues["items"][number] {
   return {
     title: "",
     description: "",
@@ -75,8 +75,8 @@ function emptyItem(itemType = "SingleLineText"): TemplateValues["items"][number]
     evidenceMode: "None",
     itemType,
     options: itemType === "MultipleChoice" ? "Option 1, Option 2, Option 3" : "",
-    mainBlockTitle: "",
-    subBlockTitle: "",
+    mainBlockTitle: mainBlock,
+    subBlockTitle: subBlock,
   };
 }
 
@@ -202,7 +202,11 @@ export function TaskTemplateForm({ id }: { id?: string }) {
   }
 
   function handleSelectItemType(type: string) {
-    items.append(emptyItem(type));
+    const currentItems = form.getValues("items");
+    const lastItem = currentItems.length > 0 ? currentItems[currentItems.length - 1] : null;
+    const mainBlock = lastItem?.mainBlockTitle || "";
+    const subBlock = lastItem?.subBlockTitle || "";
+    items.append(emptyItem(type, mainBlock, subBlock));
     setIsTypeModalOpen(false);
   }
 
