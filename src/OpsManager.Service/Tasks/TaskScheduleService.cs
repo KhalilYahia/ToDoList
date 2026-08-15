@@ -635,7 +635,10 @@ public sealed class TaskOccurrenceGeneratorService(
             return new OccurrenceGenerationResult(schedule.Id, 0, throughDate ?? Today().AddDays(options.GenerationHorizonDays));
         }
 
-        DateOnly horizon = throughDate ?? Today().AddDays(options.GenerationHorizonDays);
+        DateOnly defaultHorizon = Today().AddDays(Math.Max(options.GenerationHorizonDays, 90));
+        DateOnly horizon = throughDate ?? (schedule.RecurrenceEndDate.HasValue && schedule.RecurrenceEndDate.Value < defaultHorizon
+            ? schedule.RecurrenceEndDate.Value
+            : defaultHorizon);
         TaskTemplate template = await unitOfWork.Repository<TaskTemplate>().GetByIdAsync(schedule.TaskTemplateId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(TaskTemplate));
         Branch branch = await unitOfWork.Repository<Branch>().GetByIdAsync(schedule.BranchId, cancellationToken)

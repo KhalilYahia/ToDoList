@@ -147,6 +147,7 @@ export function TaskScheduleForm({ id }: { id?: string }) {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["task-schedules"] });
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast.push(id ? "Schedule updated." : "Schedule created.");
       router.push("/task-schedules");
     },
