@@ -46,7 +46,10 @@ export async function parseProblemDetails(
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof TypeError) {
-    return "The API is unavailable. Check your connection and try again.";
+    if (typeof window !== "undefined" && typeof navigator !== "undefined" && !navigator.onLine) {
+      return "You are offline. Please check your internet connection.";
+    }
+    return "The API server is unreachable. Please make sure the backend service is running.";
   }
   return error instanceof Error ? error.message : "Something went wrong.";
 }
