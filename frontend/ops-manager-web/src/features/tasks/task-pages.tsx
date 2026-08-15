@@ -813,6 +813,19 @@ export function TaskDetail({ id }: { id: string }) {
     }
   }
 
+  async function deleteEvidence(itemId: string, attachmentId: string) {
+    setActionError(undefined);
+    try {
+      await apiRequest(`/tasks/${id}/items/${itemId}/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+      await query.refetch();
+      toast.push("Evidence attachment deleted.");
+    } catch (error) {
+      setActionError(errorMessage(error));
+    }
+  }
+
   if (query.isLoading) return <Skeleton className="h-[34rem]" />;
   if (query.error || !task) {
     return <Alert tone="danger">{errorMessage(query.error)}</Alert>;
@@ -1530,31 +1543,42 @@ export function TaskDetail({ id }: { id: string }) {
                                           fileTypeLower.startsWith("image/") ||
                                           /\.(png|jpe?g|webp|gif|svg)($|\?)/.test(urlLower);
                                         return (
-                                          <a
-                                            key={att.id}
-                                            href={att.fileUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group relative block overflow-hidden rounded-xl border border-ink-950/15 bg-white p-1 shadow-2xs hover:border-indigo-500 hover:shadow-md transition-all"
-                                          >
-                                            {isImage ? (
-                                              <img
-                                                src={att.fileUrl}
-                                                alt="Uploaded Evidence"
-                                                className="size-24 object-cover rounded-lg group-hover:scale-105 transition-transform"
-                                              />
-                                            ) : (
-                                              <div className="size-24 flex flex-col items-center justify-center bg-surface-100 rounded-lg p-2 text-center">
-                                                <Paperclip className="size-6 text-ink-500 mb-1" />
-                                                <span className="text-[11px] font-bold text-ink-700 truncate max-w-full">
-                                                  Файл
-                                                </span>
-                                              </div>
-                                            )}
-                                            <span className="mt-1 block text-[10px] font-bold text-indigo-600 text-center truncate max-w-24">
-                                              Просмотреть ↗
-                                            </span>
-                                          </a>
+                                          <div key={att.id} className="relative group">
+                                            <a
+                                              href={att.fileUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="group relative block overflow-hidden rounded-xl border border-ink-950/15 bg-white p-1 shadow-2xs hover:border-indigo-500 hover:shadow-md transition-all"
+                                            >
+                                              {isImage ? (
+                                                <img
+                                                  src={att.fileUrl}
+                                                  alt="Uploaded Evidence"
+                                                  className="size-24 object-cover rounded-lg group-hover:scale-105 transition-transform"
+                                                />
+                                              ) : (
+                                                <div className="size-24 flex flex-col items-center justify-center bg-surface-100 rounded-lg p-2 text-center">
+                                                  <Paperclip className="size-6 text-ink-500 mb-1" />
+                                                  <span className="text-[11px] font-bold text-ink-700 truncate max-w-full">
+                                                    Файл
+                                                  </span>
+                                                </div>
+                                              )}
+                                              <span className="mt-1 block text-[10px] font-bold text-indigo-600 text-center truncate max-w-24">
+                                                Просмотреть ↗
+                                              </span>
+                                            </a>
+                                            {canEditItems ? (
+                                              <button
+                                                type="button"
+                                                onClick={() => void deleteEvidence(item.id, att.id)}
+                                                className="absolute -top-2 -right-2 z-10 size-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700 active:scale-90 transition-all"
+                                                title="Удалить фото (Delete Image)"
+                                              >
+                                                <Trash2 className="size-3.5" />
+                                              </button>
+                                            ) : null}
+                                          </div>
                                         );
                                       })}
                                     </div>
@@ -1564,13 +1588,24 @@ export function TaskDetail({ id }: { id: string }) {
                             </div>
                             {evidence !== "None" && !isReportMode ? (
                               <div className="mt-3">
-                                <FileUploader
-                                  label="Add evidence"
-                                  disabled={!canEditItems}
-                                  onChange={(file) =>
-                                    void uploadEvidence(item.id, file)
-                                  }
-                                />
+                                {itemAttachments.length < Math.min(5, (item as any).maxAttachments ?? 5) ? (
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <FileUploader
+                                      label="Add evidence"
+                                      disabled={!canEditItems}
+                                      onChange={(file) =>
+                                        void uploadEvidence(item.id, file)
+                                      }
+                                    />
+                                    <span className="text-xs font-semibold text-ink-500">
+                                      ({itemAttachments.length} / {Math.min(5, (item as any).maxAttachments ?? 5)} фото)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3.5 py-2 rounded-xl inline-flex items-center gap-2">
+                                    <span>⚠️ Достигнут лимит файлов ({itemAttachments.length} из макс. {Math.min(5, (item as any).maxAttachments ?? 5)}). Удалите существующее фото, чтобы загрузить новое.</span>
+                                  </div>
+                                )}
                               </div>
                             ) : null}
                           </div>

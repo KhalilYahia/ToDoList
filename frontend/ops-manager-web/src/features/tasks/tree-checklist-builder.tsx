@@ -33,6 +33,7 @@ export interface ChecklistTreeItem {
   options?: string;
   mainBlockTitle?: string;
   subBlockTitle?: string;
+  maxAttachments?: number;
 }
 
 interface TreeChecklistBuilderProps {
@@ -117,6 +118,7 @@ export function TreeChecklistBuilder({
       options: type === "MultipleChoice" ? "Option 1, Option 2, Option 3" : "",
       mainBlockTitle: mainBlock,
       subBlockTitle: subBlock,
+      maxAttachments: 5,
     };
   }
 
@@ -494,7 +496,7 @@ export function TreeChecklistBuilder({
                               placeholder="Описание способа выполнения..."
                             />
                           </Field>
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-3 sm:grid-cols-3">
                             <Field label="Тип пункта">
                               <Select
                                 value={item.itemType || "SingleLineText"}
@@ -521,6 +523,23 @@ export function TreeChecklistBuilder({
                                     {mode}
                                   </option>
                                 ))}
+                              </Select>
+                            </Field>
+                            <Field label="Макс. фото (до 5)">
+                              <Select
+                                value={item.maxAttachments ?? 5}
+                                onChange={(e) =>
+                                  onUpdate(index, {
+                                    ...item,
+                                    maxAttachments: Math.min(5, Math.max(1, Number(e.target.value) || 1)),
+                                  })
+                                }
+                              >
+                                <option value={1}>1 фото</option>
+                                <option value={2}>2 фото</option>
+                                <option value={3}>3 фото</option>
+                                <option value={4}>4 фото</option>
+                                <option value={5}>5 фото (макс.)</option>
                               </Select>
                             </Field>
                           </div>
