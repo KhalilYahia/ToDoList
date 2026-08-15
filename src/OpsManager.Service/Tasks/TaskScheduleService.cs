@@ -244,6 +244,18 @@ public sealed class TaskScheduleService(
             configuredAssignees,
             cancellationToken);
 
+        IReadOnlyCollection<DateOnly> specificDates = await unitOfWork.Repository<TaskScheduleDate>().ProjectAsync(
+            d => d.TaskScheduleId == schedule.Id,
+            d => d.OccurrenceDate,
+            cancellationToken);
+
+        DateOnly horizon = DateOnly.FromDateTime(clock.UtcNow.DateTime).AddDays(90);
+        IReadOnlyList<DateOnly> validDates = TaskOccurrenceCalculator.Calculate(schedule, horizon, specificDates);
+        HashSet<DateOnly> validDateSet = validDates.ToHashSet();
+
+        DateTimeOffset nowUtc = clock.UtcNow;
+        Guid currentActorId = currentUser.UserId ?? Guid.Empty;
+
         foreach (TaskDistribution dist in distributionsResult.Items)
         {
             PagedResult<OperationalTask> distTasks = await unitOfWork.Repository<OperationalTask>().ListAsync(
@@ -254,6 +266,17 @@ public sealed class TaskScheduleService(
             // Only sync if ALL tasks in this distribution are still NotStarted
             if (distTasks.Items.Count > 0 && distTasks.Items.All(t => t.Status == OperationalTaskStatus.NotStarted))
             {
+                // If schedule was deactivated or occurrence date falls outside updated recurrence range / end date:
+                if (!schedule.IsActive || !validDateSet.Contains(dist.OccurrenceDate))
+                {
+                    foreach (OperationalTask task in distTasks.Items)
+                    {
+                        task.Cancel(currentActorId, nowUtc, !schedule.IsActive ? "Task schedule deactivated." : "Occurrence outside updated schedule recurrence range.");
+                        unitOfWork.Repository<OperationalTask>().Update(task);
+                    }
+                    continue;
+                }
+
                 DateTimeOffset newStart = TaskOccurrenceGeneratorService.ToUtc(dist.OccurrenceDate, schedule.ExecutionStartTime, timezone);
                 DateTimeOffset newDue = TaskOccurrenceGeneratorService.ToUtc(dist.OccurrenceDate.AddDays(schedule.ExecutionDueDayOffset), schedule.ExecutionDueTime, timezone);
 
@@ -261,16 +284,15 @@ public sealed class TaskScheduleService(
                 dist.UpdateDetails(schedule.BranchId, schedule.DepartmentId, schedule.AssignmentMode, template.Id);
                 unitOfWork.Repository<TaskDistribution>().Update(dist);
 
-                // Update existing tasks and items in place (without deleting entities, avoiding FK constraint violations)
-                for (int i = 0; i < distTasks.Items.Count; i++)
+                int commonCount = Math.Min(distTasks.Items.Count, resolvedAssignees.Count);
+
+                // Update existing common tasks and items in place
+                for (int i = 0; i < commonCount; i++)
                 {
                     OperationalTask task = distTasks.Items[i];
                     task.Reschedule(task.OccurrenceDate, newStart, newDue, false);
                     task.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
-                    if (i < resolvedAssignees.Count)
-                    {
-                        task.Assign(resolvedAssignees[i].UserId);
-                    }
+                    task.Assign(resolvedAssignees[i].UserId);
                     unitOfWork.Repository<OperationalTask>().Update(task);
 
                     PagedResult<TaskItem> existingItems = await unitOfWork.Repository<TaskItem>().ListAsync(
@@ -316,6 +338,53 @@ public sealed class TaskScheduleService(
                         }
                     }
                 }
+
+                // If assignees increased, create new tasks and items for extra assignees
+                for (int i = commonCount; i < resolvedAssignees.Count; i++)
+                {
+                    OperationalTask newTask = OperationalTask.CreateAssignedCopy(
+                        schedule.OrganizationId,
+                        dist.Id,
+                        schedule.BranchId,
+                        schedule.DepartmentId,
+                        resolvedAssignees[i].UserId,
+                        template.Id,
+                        schedule.Id,
+                        null,
+                        template.Title,
+                        template.Description,
+                        dist.OccurrenceDate,
+                        newStart,
+                        newDue,
+                        template.DefaultPriority,
+                        template.RequiresApproval,
+                        schedule.CreatedBy);
+
+                    await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
+                    await unitOfWork.Repository<TaskItem>().AddRangeAsync(
+                        templateItems.Items.Select(item => new TaskItem(
+                            schedule.OrganizationId,
+                            newTask.Id,
+                            item.Title,
+                            item.SortOrder,
+                            item.IsRequired,
+                            item.EvidenceMode,
+                            item.Id,
+                            item.Description,
+                            item.ItemType,
+                            item.Options,
+                            item.MainBlockTitle,
+                            item.SubBlockTitle)),
+                        cancellationToken);
+                }
+
+                // If assignees decreased, cancel extra tasks
+                for (int i = commonCount; i < distTasks.Items.Count; i++)
+                {
+                    OperationalTask extraTask = distTasks.Items[i];
+                    extraTask.Cancel(currentActorId, nowUtc, "Assignee removed from schedule.");
+                    unitOfWork.Repository<OperationalTask>().Update(extraTask);
+                }
             }
         }
 
@@ -347,7 +416,7 @@ public sealed class TaskScheduleService(
             cancellationToken);
 
         DateTimeOffset now = clock.UtcNow;
-        Guid actorId = currentUser.UserId!.Value;
+        Guid actorId = currentUser.UserId ?? Guid.Empty;
         foreach (OperationalTask task in pendingTasks.Items)
         {
             task.Cancel(actorId, now, "Task schedule was deleted or deactivated.");
@@ -375,6 +444,19 @@ public sealed class TaskScheduleService(
         else
         {
             schedule.Deactivate();
+            PagedResult<OperationalTask> unstartedTasks = await unitOfWork.Repository<OperationalTask>().ListAsync(
+                task => task.TaskScheduleId == schedule.Id &&
+                    task.Status == OperationalTaskStatus.NotStarted,
+                new PageRequest(1, PageRequest.MaximumPageSize),
+                cancellationToken);
+
+            DateTimeOffset now = clock.UtcNow;
+            Guid actorId = currentUser.UserId ?? Guid.Empty;
+            foreach (OperationalTask task in unstartedTasks.Items)
+            {
+                task.Cancel(actorId, now, "Task schedule was deactivated.");
+                unitOfWork.Repository<OperationalTask>().Update(task);
+            }
         }
         unitOfWork.Repository<TaskSchedule>().Update(schedule);
         await auditService.RecordTenantAsync(
