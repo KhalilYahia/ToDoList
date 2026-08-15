@@ -617,9 +617,10 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
   });
 
   const container = document.createElement("div");
-  container.style.position = "absolute";
-  container.style.left = "-9999px";
-  container.style.top = "-9999px";
+  container.style.position = "fixed";
+  container.style.left = "0";
+  container.style.top = "0";
+  container.style.zIndex = "-99999";
   container.style.width = "790px";
   container.style.background = "#ffffff";
   container.style.color = "#0f172a";
@@ -687,12 +688,37 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
 
   document.body.appendChild(container);
 
+  // Preload all images to ensure html2canvas renders them
+  const imgElements = Array.from(container.querySelectorAll("img"));
+  if (imgElements.length > 0) {
+    await Promise.all(
+      imgElements.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete && img.naturalWidth > 0) {
+              resolve();
+            } else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }
+          })
+      )
+    );
+  }
+
   const cleanTitle = task.title.replace(/[^a-zA-Z0-9_\-\u0600-\u06FF\u0400-\u04FF]/g, "_").substring(0, 40);
   const opt = {
     margin: [8, 8, 8, 8] as [number, number, number, number],
     filename: `Task_Report_${cleanTitle}_${task.occurrenceDate || "report"}.pdf`,
     image: { type: "jpeg" as const, quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      scrollY: 0,
+      scrollX: 0,
+      windowWidth: 850,
+    },
     jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
     pagebreak: { mode: ["avoid-all", "css", "legacy"] },
   };
