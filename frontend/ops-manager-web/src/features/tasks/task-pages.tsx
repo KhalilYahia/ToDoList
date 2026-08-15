@@ -1709,7 +1709,7 @@ export function TaskListPage({ scope }: { scope: "Upcoming" | "Past" }) {
   );
   const hasFilters = isEmployeeOrSupervisor
     ? Boolean(from || to)
-    : Boolean(departmentId || status || priority || from || to);
+    : Boolean(assigneeUserId || departmentId || status || priority || from || to);
 
   return (
     <>
@@ -1730,6 +1730,19 @@ export function TaskListPage({ scope }: { scope: "Upcoming" | "Past" }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {!isEmployeeOrSupervisor ? (
             <>
+              <Field label={tCommon("employee")}>
+                <Select
+                  value={assigneeUserId}
+                  onChange={(e) => updateFilter("assigneeUserId", e.target.value)}
+                >
+                  <option value="">{tCommon("all")}</option>
+                  {references.members.map((member) => (
+                    <option key={member.membershipId} value={member.userId}>
+                      {member.fullName}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field label={tCommon("department")}>
                 <Select
                   value={departmentId}
