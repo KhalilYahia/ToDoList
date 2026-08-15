@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useState, useMemo } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -52,6 +52,60 @@ export function TreeChecklistBuilder({
 }: TreeChecklistBuilderProps) {
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  const numberedTree = useMemo(() => {
+    let mainCounter = 0;
+    let subCounter = 0;
+    let itemCounter = 0;
+    let lastMainBlock = "";
+    let lastSubBlock = "";
+
+    return items.map((item) => {
+      const main = item.mainBlockTitle?.trim() || "";
+      const sub = item.subBlockTitle?.trim() || "";
+
+      if (main && main !== lastMainBlock) {
+        mainCounter++;
+        subCounter = 0;
+        itemCounter = 0;
+        lastMainBlock = main;
+        lastSubBlock = "";
+      }
+
+      if (sub && sub !== lastSubBlock) {
+        subCounter++;
+        itemCounter = 0;
+        lastSubBlock = sub;
+      }
+
+      itemCounter++;
+
+      const hasMain = Boolean(main);
+      const hasSub = Boolean(sub);
+
+      const mainNumber = hasMain ? `${mainCounter}.` : "";
+      const subNumber = hasSub
+        ? hasMain
+          ? `${mainCounter}.${subCounter}.`
+          : `${subCounter}.`
+        : "";
+
+      let itemNumber = `${itemCounter}.`;
+      if (hasMain && hasSub) {
+        itemNumber = `${mainCounter}.${subCounter}.${itemCounter}.`;
+      } else if (hasMain && !hasSub) {
+        itemNumber = `${mainCounter}.${itemCounter}.`;
+      } else if (!hasMain && hasSub) {
+        itemNumber = `${subCounter}.${itemCounter}.`;
+      }
+
+      return {
+        mainNumber,
+        subNumber,
+        itemNumber,
+      };
+    });
+  }, [items]);
 
   function createEmptyItem(type = "SingleLineText", mainBlock = "", subBlock = ""): ChecklistTreeItem {
     return {
@@ -271,8 +325,9 @@ export function TreeChecklistBuilder({
                       <td className="p-3 ps-4" colSpan={2}>
                         <div className="flex items-center gap-2">
                           <Folder className="size-5 text-amber-500 shrink-0" />
-                          <span className="text-ink-900 text-base font-extrabold">
-                            {item.mainBlockTitle}
+                          <span className="text-ink-900 text-base font-extrabold flex items-center gap-1.5">
+                            <span className="text-brand-700 font-extrabold">{numberedTree[index]?.mainNumber}</span>
+                            <span>{item.mainBlockTitle}</span>
                           </span>
                         </div>
                       </td>
@@ -285,8 +340,9 @@ export function TreeChecklistBuilder({
                       <td className="p-3 ps-8" colSpan={2}>
                         <div className="flex items-center gap-2">
                           <FolderTree className="size-4 text-indigo-500 shrink-0" />
-                          <span className="text-ink-800 text-sm font-bold">
-                            {item.subBlockTitle}
+                          <span className="text-ink-800 text-sm font-bold flex items-center gap-1.5">
+                            <span className="text-brand-700 font-bold">{numberedTree[index]?.subNumber}</span>
+                            <span>{item.subBlockTitle}</span>
                           </span>
                         </div>
                       </td>
@@ -324,8 +380,9 @@ export function TreeChecklistBuilder({
 
                         {/* TITLE & DESCRIPTION */}
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-ink-900 text-sm">
-                            {item.title || <span className="text-slate-400 italic">Без названия (нажмите изм.)</span>}
+                          <p className="font-semibold text-ink-900 text-sm flex items-baseline gap-1.5">
+                            <span className="text-brand-700 font-bold shrink-0">{numberedTree[index]?.itemNumber}</span>
+                            <span>{item.title || <span className="text-slate-400 italic">Без названия (нажмите изм.)</span>}</span>
                           </p>
                           {item.description ? (
                             <p className="text-slate-500 text-xs mt-0.5">{item.description}</p>

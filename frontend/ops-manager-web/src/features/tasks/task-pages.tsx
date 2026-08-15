@@ -579,7 +579,7 @@ export function TaskDetail({ id }: { id: string }) {
   const canEditItems = canExecute && status === "InProgress";
   const reasonBody = { reason: reason.trim() };
 
-  // Group items by mainBlockTitle -> subBlockTitle
+  // Group items by mainBlockTitle -> subBlockTitle with hierarchical numbering
   const itemGroups = (() => {
     const blocksMap = new Map<string, Map<string, Schemas["TaskItemDto"][]>>();
     for (const item of task.items) {
@@ -594,13 +594,50 @@ export function TaskDetail({ id }: { id: string }) {
       }
       subs.get(sub)!.push(item);
     }
-    return Array.from(blocksMap.entries()).map(([main, subs]) => ({
-      mainBlock: main,
-      subBlocks: Array.from(subs.entries()).map(([sub, items]) => ({
-        subBlock: sub,
-        items,
-      })),
-    }));
+
+    let mainCounter = 0;
+    return Array.from(blocksMap.entries()).map(([main, subs]) => {
+      const hasMain = Boolean(main);
+      if (hasMain) mainCounter++;
+      const mainPrefix = hasMain ? `${mainCounter}.` : "";
+
+      let subCounter = 0;
+      const subBlocks = Array.from(subs.entries()).map(([sub, items]) => {
+        const hasSub = Boolean(sub);
+        if (hasSub) subCounter++;
+        const subPrefix = hasSub
+          ? hasMain
+            ? `${mainCounter}.${subCounter}.`
+            : `${subCounter}.`
+          : "";
+
+        let itemCounter = 0;
+        const numberedItems = items.map((item) => {
+          itemCounter++;
+          let itemPrefix = `${itemCounter}.`;
+          if (hasMain && hasSub) {
+            itemPrefix = `${mainCounter}.${subCounter}.${itemCounter}.`;
+          } else if (hasMain && !hasSub) {
+            itemPrefix = `${mainCounter}.${itemCounter}.`;
+          } else if (!hasMain && hasSub) {
+            itemPrefix = `${subCounter}.${itemCounter}.`;
+          }
+          return { item, itemPrefix };
+        });
+
+        return {
+          subBlock: sub,
+          subPrefix,
+          items: numberedItems,
+        };
+      });
+
+      return {
+        mainBlock: main,
+        mainPrefix,
+        subBlocks,
+      };
+    });
   })();
 
   const isOverdue = (() => {
@@ -938,18 +975,20 @@ export function TaskDetail({ id }: { id: string }) {
               {itemGroups.map((group, groupIdx) => (
                 <div key={groupIdx} className="grid gap-3">
                   {group.mainBlock ? (
-                    <h3 className="border-b pb-2 text-base font-black text-ink-900">
-                      {group.mainBlock}
+                    <h3 className="border-b pb-2 text-base font-black text-ink-900 flex items-center gap-2">
+                      <span className="text-brand-700 font-extrabold">{group.mainPrefix}</span>
+                      <span>{group.mainBlock}</span>
                     </h3>
                   ) : null}
                   {group.subBlocks.map((sub, subIdx) => (
                     <div key={subIdx} className="grid gap-3 ps-2">
                       {sub.subBlock ? (
-                        <h4 className="text-sm font-bold text-ink-700">
-                          {sub.subBlock}
+                        <h4 className="text-sm font-bold text-ink-700 flex items-center gap-2">
+                          <span className="text-brand-700 font-bold">{sub.subPrefix}</span>
+                          <span>{sub.subBlock}</span>
                         </h4>
                       ) : null}
-                      {sub.items.map((item) => {
+                      {sub.items.map(({ item, itemPrefix }) => {
                         const completed =
                           enumCode("taskItemStatus", item.status) === "Completed";
                         const evidence = enumCode("evidenceMode", item.evidenceMode);
@@ -967,7 +1006,10 @@ export function TaskDetail({ id }: { id: string }) {
                             <div className="flex items-start gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                  <p className="font-bold text-ink-900 text-base">{item.title}</p>
+                                  <p className="font-bold text-ink-900 text-base flex items-baseline gap-1.5">
+                                    <span className="text-brand-700 font-extrabold shrink-0">{itemPrefix}</span>
+                                    <span>{item.title}</span>
+                                  </p>
                                   {completed ? (
                                     <span className="shrink-0 flex items-center gap-1">
                                       <Badge tone="success">
