@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
@@ -14,6 +15,7 @@ import {
 import { queryKeys } from "@/lib/query/query-keys";
 
 import { CollectionPage, type Column } from "./collection-page";
+import { useReferenceData } from "./reference-data";
 
 const branchColumns: Column[] = [
   { key: "name", label: "Name" },
@@ -175,13 +177,35 @@ export function TaskTemplatesPage() {
 export function TaskSchedulesPage() {
   const t = useTranslations("Pages");
   const { identity } = useAuth();
+  const references = useReferenceData();
+
+  const columns = useMemo<Column[]>(
+    () => [
+      {
+        key: "taskTemplateId",
+        label: "Template",
+        render: (row) => {
+          const template = references.taskTemplates.find(
+            (tmpl) => tmpl.id === row.taskTemplateId,
+          );
+          return template?.title ?? (row.taskTemplateId as string);
+        },
+      },
+      { key: "recurrenceType", label: "Recurrence", enumKind: "recurrence" },
+      { key: "recurrenceStartDate", label: "Start date" },
+      { key: "recurrenceEndDate", label: "End date" },
+      { key: "isActive", label: "Active" },
+    ],
+    [references.taskTemplates],
+  );
+
   return (
     <CollectionPage
       title={t("taskSchedules")}
       description="Schedules generate independent task instances in the backend's bounded window."
       endpoint="/task-schedules"
       queryKey={queryKeys.taskSchedules.lists()}
-      columns={taskScheduleColumns}
+      columns={columns}
       createHref="/task-schedules/new"
       detailHref={(row) => `/task-schedules/${String(row.id)}/edit`}
       canCreate={isManager(identity)}
