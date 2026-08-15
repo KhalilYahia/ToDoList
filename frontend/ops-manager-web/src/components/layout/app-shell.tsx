@@ -95,7 +95,9 @@ function CollapsibleNavigationGroup({ group }: { group: NavigationGroup }) {
   const groupActive =
     group.items.some((item) => isNavigationItemActive(pathname, item)) ||
     (pathname.startsWith("/tasks/") &&
-      group.items.some((item) => item.href.startsWith("/tasks")));
+      group.items.some((item) => item.href.startsWith("/tasks"))) ||
+    (pathname === "/my-tasks" &&
+      group.items.some((item) => item.href === "/my-tasks"));
   const [state, setState] = useState({
     pathname,
     open: groupActive,
@@ -172,7 +174,20 @@ export function AppShell({
 
   const tenantItems: NavigationEntry[] = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
-    { href: "/my-tasks", label: t("myTasks"), icon: ClipboardCheck },
+    ...(isManager(identity)
+      ? [
+          {
+            href: "/task-templates",
+            label: t("taskTemplates"),
+            icon: ClipboardCheck,
+          },
+          {
+            href: "/task-schedules",
+            label: t("taskSchedules"),
+            icon: CalendarDays,
+          },
+        ]
+      : []),
     {
       label: t("tasks"),
       icon: ClipboardCheck,
@@ -187,28 +202,26 @@ export function AppShell({
           label: t("pastTasks"),
           icon: ClipboardCheck,
         },
+        {
+          href: "/my-tasks",
+          label: t("myTasks"),
+          icon: ClipboardCheck,
+        },
       ],
     },
     { href: "/department-orders", label: t("orders"), icon: PackageCheck },
-    { href: "/complaints", label: t("complaints"), icon: FileWarning },
-    { href: "/settings/profile", label: t("profile"), icon: Users },
     ...(isManager(identity)
       ? [
-          {
-            href: "/task-templates",
-            label: t("taskTemplates"),
-            icon: ClipboardCheck,
-          },
-          {
-            href: "/task-schedules",
-            label: t("taskSchedules"),
-            icon: CalendarDays,
-          },
           {
             href: "/order-templates",
             label: t("orderTemplates"),
             icon: PackageCheck,
           },
+        ]
+      : []),
+    { href: "/complaints", label: t("complaints"), icon: FileWarning },
+    ...(isManager(identity)
+      ? [
           { href: "/reports/tasks", label: t("reports"), icon: BarChart3 },
           {
             label: t("organizationConfigs"),
@@ -259,10 +272,10 @@ export function AppShell({
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[17rem_1fr]">
-      <aside className="border-ink-950/8 bg-surface/85 hidden border-e p-4 backdrop-blur lg:sticky lg:top-0 lg:block lg:h-screen">
+      <aside className="border-ink-950/8 bg-surface/85 hidden flex-col border-e p-4 backdrop-blur lg:sticky lg:top-0 lg:flex lg:h-screen">
         <Link
           href={realm === "tenant" ? "/dashboard" : "/platform"}
-          className="mb-7 flex items-center gap-3 px-2"
+          className="mb-6 flex items-center gap-3 px-2 shrink-0"
         >
           <span className="bg-brand-700 grid size-10 place-items-center rounded-xl font-black text-white">
             O
@@ -274,7 +287,34 @@ export function AppShell({
             </span>
           </span>
         </Link>
-        <NavLinks entries={entries} />
+        <div className="flex-1 overflow-y-auto pe-1">
+          <NavLinks entries={entries} />
+        </div>
+        <div className="mt-auto border-t border-ink-950/8 pt-3 grid gap-1 shrink-0">
+          {realm === "tenant" ? (
+            <NavigationLink
+              item={{
+                href: "/settings/profile",
+                label: t("profile"),
+                icon: Users,
+              }}
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={() =>
+              void logout().then(() =>
+                router.replace(
+                  realm === "platform" ? "/platform/login" : "/login",
+                ),
+              )
+            }
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-start text-sm font-semibold text-danger-600 hover:bg-danger-50 transition"
+          >
+            <LogOut className="size-4.5 shrink-0" />
+            <span>{t("logout")}</span>
+          </button>
+        </div>
       </aside>
 
       <div className="min-w-0">
@@ -286,6 +326,31 @@ export function AppShell({
             </summary>
             <div className="border-ink-950/10 bg-surface absolute start-0 top-12 z-50 w-72 rounded-2xl border p-3 shadow-2xl">
               <NavLinks entries={entries} />
+              <div className="mt-2 border-t border-ink-950/8 pt-2 grid gap-1">
+                {realm === "tenant" ? (
+                  <NavigationLink
+                    item={{
+                      href: "/settings/profile",
+                      label: t("profile"),
+                      icon: Users,
+                    }}
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() =>
+                    void logout().then(() =>
+                      router.replace(
+                        realm === "platform" ? "/platform/login" : "/login",
+                      ),
+                    )
+                  }
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-start text-sm font-semibold text-danger-600 hover:bg-danger-50 transition"
+                >
+                  <LogOut className="size-4.5 shrink-0" />
+                  <span>{t("logout")}</span>
+                </button>
+              </div>
             </div>
           </details>
           <div className="min-w-0 flex-1">
