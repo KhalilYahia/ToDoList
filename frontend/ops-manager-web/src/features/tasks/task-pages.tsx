@@ -713,6 +713,7 @@ export function TaskDetail({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
   const [actionError, setActionError] = useState<string>();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const query = useQuery({
     queryKey: queryKeys.tasks.detail(id),
     queryFn: () => apiRequest<Schemas["TaskDto"]>(`/tasks/${id}`),
@@ -927,7 +928,6 @@ export function TaskDetail({ id }: { id: string }) {
   })();
 
   const isManagerUser = isManager(identity);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   async function handleDownloadReport() {
     if (!task) return;
