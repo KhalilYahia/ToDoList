@@ -463,7 +463,7 @@ export function TaskForm() {
   );
 }
 
-export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: string) {
+export function generateAndSavePdf(task: Schemas["TaskDto"], locale: string) {
   const statusCode = enumCode("taskStatus", task.status);
 
   const questions = task.items.filter(
@@ -616,7 +616,10 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
     });
   });
 
-  const fullReportHtml = `
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -624,13 +627,22 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
   <title>Task Report - ${task.title}</title>
   <style>
     @media print {
-      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      @page { size: A4; margin: 10mm; }
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: #ffffff !important; }
       .no-print { display: none !important; }
     }
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; padding: 24px; background: #ffffff; max-width: 800px; margin: 0 auto; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; padding: 24px; background: #ffffff; max-width: 820px; margin: 0 auto; line-height: 1.5; }
+    .print-bar { background: #1e1b4b; color: white; padding: 12px 20px; border-radius: 10px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+    .btn-pdf { background: #4f46e5; color: white; border: none; padding: 10px 18px; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .btn-pdf:hover { background: #4338ca; }
   </style>
 </head>
 <body>
+  <div class="no-print print-bar">
+    <div style="font-weight: 700; font-size: 14px;">📄 Отчет готов для сохранения в PDF (PDF Report Ready)</div>
+    <button class="btn-pdf" onclick="window.print()">🖨️ Сохранить в PDF (Save as PDF)</button>
+  </div>
+
   <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #4f46e5; padding-bottom:14px; margin-bottom:18px;">
     <div>
       <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#4f46e5; margin-bottom:4px;">OPS MANAGER • EXECUTIVE REPORT</div>
@@ -685,78 +697,19 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
     Результаты проверки чек-листа
   </h2>
   ${itemsHtml}
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 400);
+    };
+  </script>
 </body>
 </html>
-  `;
-
-  // Method 1: Try html2pdf.js direct download
-  try {
-    const html2pdfModule = await import("html2pdf.js");
-    const html2pdfFn = (html2pdfModule as any).default || html2pdfModule;
-
-    if (typeof html2pdfFn === "function") {
-      const container = document.createElement("div");
-      container.style.position = "fixed";
-      container.style.left = "0";
-      container.style.top = "0";
-      container.style.zIndex = "-99999";
-      container.style.width = "790px";
-      container.style.background = "#ffffff";
-      container.innerHTML = fullReportHtml;
-      document.body.appendChild(container);
-
-      const imgElements = Array.from(container.querySelectorAll("img"));
-      if (imgElements.length > 0) {
-        await Promise.all(
-          imgElements.map(
-            (img) =>
-              new Promise<void>((resolve) => {
-                if (img.complete && img.naturalWidth > 0) {
-                  resolve();
-                } else {
-                  img.onload = () => resolve();
-                  img.onerror = () => resolve();
-                }
-              })
-          )
-        );
-      }
-
-      const cleanTitle = task.title.replace(/[^a-zA-Z0-9_\-\u0600-\u06FF\u0400-\u04FF]/g, "_").substring(0, 40);
-      const opt = {
-        margin: [8, 8, 8, 8] as [number, number, number, number],
-        filename: `Task_Report_${cleanTitle}_${task.occurrenceDate || "report"}.pdf`,
-        image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollY: 0,
-          scrollX: 0,
-          windowWidth: 850,
-        },
-        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-      };
-
-      await html2pdfFn().set(opt).from(container).save();
-      document.body.removeChild(container);
-      return;
-    }
-  } catch (pdfErr) {
-    console.warn("html2pdf failed, falling back to print window:", pdfErr);
-  }
-
-  // Method 2: Fallback to print-to-PDF window if html2pdf fails or is blocked
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(fullReportHtml);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 400);
-  }
+  `);
+  printWindow.document.close();
 }
 
 export function TaskDetail({ id }: { id: string }) {
@@ -984,18 +937,10 @@ export function TaskDetail({ id }: { id: string }) {
 
   const isManagerUser = isManager(identity);
 
-  async function handleDownloadReport() {
+  function handleDownloadReport() {
     if (!task) return;
-    setIsDownloadingPdf(true);
-    toast.push("Генерация PDF отчета...");
-    try {
-      await generateAndSavePdf(task, locale);
-    } catch (err) {
-      console.error("Failed to generate PDF:", err);
-      toast.push(`Ошибка PDF: ${errorMessage(err)}`, "danger");
-    } finally {
-      setIsDownloadingPdf(false);
-    }
+    toast.push("Открытие PDF отчета...");
+    generateAndSavePdf(task, locale);
   }
 
   return (
