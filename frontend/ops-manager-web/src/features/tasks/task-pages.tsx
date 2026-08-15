@@ -759,124 +759,126 @@ export function TaskDetail({ id }: { id: string }) {
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_20rem]">
         <div className="grid gap-5">
           {/* Executive Task Report & Compliance Statistics Card */}
-          <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/30 p-5 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-100 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-slate-900">
-                    {isReportMode ? "Отчет по задаче (Task Report)" : "Прогресс выполнения"}
-                  </h2>
-                  <Badge
-                    tone={
-                      reportStats.yesPercentage >= 80
-                        ? "success"
+          {status !== "NotStarted" && status !== "InProgress" ? (
+            <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/30 p-5 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-indigo-100 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900">
+                      {isReportMode ? "Отчет по задаче (Task Report)" : "Прогресс выполнения"}
+                    </h2>
+                    <Badge
+                      tone={
+                        reportStats.yesPercentage >= 80
+                          ? "success"
+                          : reportStats.yesPercentage >= 50
+                          ? "warning"
+                          : "danger"
+                      }
+                    >
+                      {reportStats.yesPercentage >= 80
+                        ? "Высокое соответствие"
                         : reportStats.yesPercentage >= 50
-                        ? "warning"
-                        : "danger"
-                    }
-                  >
-                    {reportStats.yesPercentage >= 80
-                      ? "Высокое соответствие"
-                      : reportStats.yesPercentage >= 50
-                      ? "Среднее соответствие"
-                      : "Низкое соответствие"}
-                  </Badge>
+                        ? "Среднее соответствие"
+                        : "Низкое соответствие"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs font-semibold text-slate-600">
+                    {isReportMode
+                      ? "Аналитический отчет и результаты проверок по задаче"
+                      : "Режим заполнения чек-листа задачи"}
+                  </p>
                 </div>
-                <p className="mt-1 text-xs font-semibold text-slate-600">
-                  {isReportMode
-                    ? "Аналитический отчет и результаты проверок по задаче"
-                    : "Режим заполнения чек-листа задачи"}
-                </p>
-              </div>
-              <div className="text-end">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Результат "Да (Yes)"
-                </span>
-                <p
-                  className={`text-2xl font-black ${
-                    reportStats.yesPercentage >= 80
-                      ? "text-emerald-600"
-                      : reportStats.yesPercentage >= 50
-                      ? "text-amber-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {reportStats.yesPercentage}%
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {/* Question Yes Percentage Card */}
-              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Процент ответов "Да":
-                </p>
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-xl font-black text-slate-900">
-                    {reportStats.yesPercentage}%
+                <div className="text-end">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Результат "Да (Yes)"
                   </span>
-                  <span className="text-xs font-bold text-slate-600">
-                    {reportStats.yesCount} из {reportStats.questionsCount} Да
-                  </span>
-                </div>
-                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full transition-all ${
+                  <p
+                    className={`text-2xl font-black ${
                       reportStats.yesPercentage >= 80
-                        ? "bg-emerald-500"
+                        ? "text-emerald-600"
                         : reportStats.yesPercentage >= 50
-                        ? "bg-amber-500"
-                        : "bg-rose-500"
+                        ? "text-amber-600"
+                        : "text-rose-600"
                     }`}
-                    style={{ width: `${reportStats.yesPercentage}%` }}
-                  />
-                </div>
-                <p className="mt-1.5 text-[11px] font-medium text-slate-500">
-                  * Неотвеченные пункты считаются как "Нет"
-                </p>
-              </div>
-
-              {/* Completion Percentage Card */}
-              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Завершено пунктов:
-                </p>
-                <div className="mt-2 flex items-baseline justify-between">
-                  <span className="text-xl font-black text-slate-900">
-                    {reportStats.completionPercentage}%
-                  </span>
-                  <span className="text-xs font-bold text-slate-600">
-                    {reportStats.completedCount} из {reportStats.totalItems} готово
-                  </span>
-                </div>
-                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full bg-indigo-600 transition-all"
-                    style={{ width: `${reportStats.completionPercentage}%` }}
-                  />
+                  >
+                    {reportStats.yesPercentage}%
+                  </p>
                 </div>
               </div>
 
-              {/* Evidence & Attachments Card */}
-              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Загружено фото / доказательств:
-                </p>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xl font-black text-slate-900">
-                    {reportStats.totalPhotos}
-                  </span>
-                  <Badge tone={reportStats.totalPhotos > 0 ? "success" : "neutral"}>
-                    {reportStats.totalPhotos > 0 ? "Есть доказательства" : "Нет фото"}
-                  </Badge>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {/* Question Yes Percentage Card */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Процент ответов "Да":
+                  </p>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl font-black text-slate-900">
+                      {reportStats.yesPercentage}%
+                    </span>
+                    <span className="text-xs font-bold text-slate-600">
+                      {reportStats.yesCount} из {reportStats.questionsCount} Да
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full transition-all ${
+                        reportStats.yesPercentage >= 80
+                          ? "bg-emerald-500"
+                          : reportStats.yesPercentage >= 50
+                          ? "bg-amber-500"
+                          : "bg-rose-500"
+                      }`}
+                      style={{ width: `${reportStats.yesPercentage}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                    * Неотвеченные пункты считаются как "Нет"
+                  </p>
                 </div>
-                <p className="mt-2 text-xs font-medium text-slate-500">
-                  Файлов прикреплено к задаче
-                </p>
+
+                {/* Completion Percentage Card */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Завершено пунктов:
+                  </p>
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-xl font-black text-slate-900">
+                      {reportStats.completionPercentage}%
+                    </span>
+                    <span className="text-xs font-bold text-slate-600">
+                      {reportStats.completedCount} из {reportStats.totalItems} готово
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full bg-indigo-600 transition-all"
+                      style={{ width: `${reportStats.completionPercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Evidence & Attachments Card */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Загружено фото / доказательств:
+                  </p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xl font-black text-slate-900">
+                      {reportStats.totalPhotos}
+                    </span>
+                    <Badge tone={reportStats.totalPhotos > 0 ? "success" : "neutral"}>
+                      {reportStats.totalPhotos > 0 ? "Есть доказательства" : "Нет фото"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-slate-500">
+                    Файлов прикреплено к задаче
+                  </p>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          ) : null}
 
           <Card className="p-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
