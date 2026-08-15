@@ -464,7 +464,7 @@ export function TaskForm() {
 }
 
 export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: string) {
-  const html2pdf = (await import("html2pdf.js")).default;
+  const statusCode = enumCode("taskStatus", task.status);
 
   const questions = task.items.filter(
     (i) => (i.itemType ? enumCode("taskItemType", i.itemType) : "Question") === "Question"
@@ -616,117 +616,146 @@ export async function generateAndSavePdf(task: Schemas["TaskDto"], locale: strin
     });
   });
 
-  const container = document.createElement("div");
-  container.style.position = "fixed";
-  container.style.left = "0";
-  container.style.top = "0";
-  container.style.zIndex = "-99999";
-  container.style.width = "790px";
-  container.style.background = "#ffffff";
-  container.style.color = "#0f172a";
-  container.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-  container.style.padding = "24px";
-
-  const statusCode = enumCode("taskStatus", task.status);
-
-  container.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #4f46e5; padding-bottom:14px; margin-bottom:18px;">
-      <div>
-        <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#4f46e5; margin-bottom:4px;">OPS MANAGER • EXECUTIVE REPORT</div>
-        <h1 style="font-size:22px; font-weight:900; color:#0f172a; margin:0; line-height:1.2;">${task.title}</h1>
-        <div style="font-size:12px; color:#64748b; margin-top:4px; font-weight:600;">Дата события: ${task.occurrenceDate || "—"}</div>
-      </div>
-      <div style="text-align:right;">
-        <span style="display:inline-block; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:800; background:#e0e7ff; color:#3730a3;">
-          ${statusCode}
-        </span>
-      </div>
+  const fullReportHtml = `
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Task Report - ${task.title}</title>
+  <style>
+    @media print {
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .no-print { display: none !important; }
+    }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; padding: 24px; background: #ffffff; max-width: 800px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #4f46e5; padding-bottom:14px; margin-bottom:18px;">
+    <div>
+      <div style="font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#4f46e5; margin-bottom:4px;">OPS MANAGER • EXECUTIVE REPORT</div>
+      <h1 style="font-size:22px; font-weight:900; color:#0f172a; margin:0; line-height:1.2;">${task.title}</h1>
+      <div style="font-size:12px; color:#64748b; margin-top:4px; font-weight:600;">Дата события: ${task.occurrenceDate || "—"}</div>
     </div>
-
-    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:18px;">
-      <div>
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Отдел</div>
-        <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${task.departmentName || "—"}</div>
-      </div>
-      <div>
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Исполнитель</div>
-        <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${task.assigneeName || "—"}</div>
-      </div>
-      <div>
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Начало</div>
-        <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${formatDateTime(task.scheduledStartAt, locale)}</div>
-      </div>
-      <div>
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Срок (Due)</div>
-        <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${formatDateTime(task.dueAt, locale)}</div>
-      </div>
+    <div style="text-align:right;">
+      <span style="display:inline-block; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:800; background:#e0e7ff; color:#3730a3;">
+        ${statusCode}
+      </span>
     </div>
+  </div>
 
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;">
-      <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Соответствие (Да)</div>
-        <div style="font-size:22px; font-weight:900; color:${reportStats.yesPercentage >= 80 ? '#166534' : reportStats.yesPercentage >= 50 ? '#92400e' : '#9f1239'}; margin-top:2px;">${reportStats.yesPercentage}%</div>
-        <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">${reportStats.yesCount} из ${reportStats.questionsCount} вопросов Да</div>
-      </div>
-      <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Завершено пунктов</div>
-        <div style="font-size:22px; font-weight:900; color:#4f46e5; margin-top:2px;">${reportStats.completionPercentage}%</div>
-        <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">${reportStats.completedCount} из ${reportStats.totalItems} выполнено</div>
-      </div>
-      <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
-        <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Фото доказательства</div>
-        <div style="font-size:22px; font-weight:900; color:#0f172a; margin-top:2px;">${reportStats.totalPhotos}</div>
-        <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">прикреплено файлов</div>
-      </div>
+  <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; margin-bottom:18px;">
+    <div>
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Отдел</div>
+      <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${task.departmentName || "—"}</div>
     </div>
+    <div>
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Исполнитель</div>
+      <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${task.assigneeName || "—"}</div>
+    </div>
+    <div>
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Начало</div>
+      <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${formatDateTime(task.scheduledStartAt, locale)}</div>
+    </div>
+    <div>
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Срок (Due)</div>
+      <div style="font-size:12px; font-weight:800; color:#0f172a; margin-top:2px;">${formatDateTime(task.dueAt, locale)}</div>
+    </div>
+  </div>
 
-    <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin-top:20px; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:6px;">
-      Результаты проверки чек-листа
-    </h2>
-    ${itemsHtml}
+  <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:20px;">
+    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Соответствие (Да)</div>
+      <div style="font-size:22px; font-weight:900; color:${reportStats.yesPercentage >= 80 ? '#166534' : reportStats.yesPercentage >= 50 ? '#92400e' : '#9f1239'}; margin-top:2px;">${reportStats.yesPercentage}%</div>
+      <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">${reportStats.yesCount} из ${reportStats.questionsCount} вопросов Да</div>
+    </div>
+    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Завершено пунктов</div>
+      <div style="font-size:22px; font-weight:900; color:#4f46e5; margin-top:2px;">${reportStats.completionPercentage}%</div>
+      <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">${reportStats.completedCount} из ${reportStats.totalItems} выполнено</div>
+    </div>
+    <div style="border:1px solid #cbd5e1; border-radius:10px; padding:12px; background:#fafafa;">
+      <div style="font-size:9px; font-weight:800; text-transform:uppercase; color:#64748b;">Фото доказательства</div>
+      <div style="font-size:22px; font-weight:900; color:#0f172a; margin-top:2px;">${reportStats.totalPhotos}</div>
+      <div style="font-size:10px; color:#64748b; font-weight:600; margin-top:2px;">прикреплено файлов</div>
+    </div>
+  </div>
+
+  <h2 style="font-size:15px; font-weight:900; color:#0f172a; margin-top:20px; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:6px;">
+    Результаты проверки чек-листа
+  </h2>
+  ${itemsHtml}
+</body>
+</html>
   `;
 
-  document.body.appendChild(container);
+  // Method 1: Try html2pdf.js direct download
+  try {
+    const html2pdfModule = await import("html2pdf.js");
+    const html2pdfFn = (html2pdfModule as any).default || html2pdfModule;
 
-  // Preload all images to ensure html2canvas renders them
-  const imgElements = Array.from(container.querySelectorAll("img"));
-  if (imgElements.length > 0) {
-    await Promise.all(
-      imgElements.map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            if (img.complete && img.naturalWidth > 0) {
-              resolve();
-            } else {
-              img.onload = () => resolve();
-              img.onerror = () => resolve();
-            }
-          })
-      )
-    );
+    if (typeof html2pdfFn === "function") {
+      const container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "0";
+      container.style.top = "0";
+      container.style.zIndex = "-99999";
+      container.style.width = "790px";
+      container.style.background = "#ffffff";
+      container.innerHTML = fullReportHtml;
+      document.body.appendChild(container);
+
+      const imgElements = Array.from(container.querySelectorAll("img"));
+      if (imgElements.length > 0) {
+        await Promise.all(
+          imgElements.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete && img.naturalWidth > 0) {
+                  resolve();
+                } else {
+                  img.onload = () => resolve();
+                  img.onerror = () => resolve();
+                }
+              })
+          )
+        );
+      }
+
+      const cleanTitle = task.title.replace(/[^a-zA-Z0-9_\-\u0600-\u06FF\u0400-\u04FF]/g, "_").substring(0, 40);
+      const opt = {
+        margin: [8, 8, 8, 8] as [number, number, number, number],
+        filename: `Task_Report_${cleanTitle}_${task.occurrenceDate || "report"}.pdf`,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: 850,
+        },
+        jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      };
+
+      await html2pdfFn().set(opt).from(container).save();
+      document.body.removeChild(container);
+      return;
+    }
+  } catch (pdfErr) {
+    console.warn("html2pdf failed, falling back to print window:", pdfErr);
   }
 
-  const cleanTitle = task.title.replace(/[^a-zA-Z0-9_\-\u0600-\u06FF\u0400-\u04FF]/g, "_").substring(0, 40);
-  const opt = {
-    margin: [8, 8, 8, 8] as [number, number, number, number],
-    filename: `Task_Report_${cleanTitle}_${task.occurrenceDate || "report"}.pdf`,
-    image: { type: "jpeg" as const, quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      scrollY: 0,
-      scrollX: 0,
-      windowWidth: 850,
-    },
-    jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
-    pagebreak: { mode: ["avoid-all", "css", "legacy"] },
-  };
-
-  try {
-    await html2pdf().set(opt).from(container).save();
-  } finally {
-    document.body.removeChild(container);
+  // Method 2: Fallback to print-to-PDF window if html2pdf fails or is blocked
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(fullReportHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
   }
 }
 
@@ -958,10 +987,12 @@ export function TaskDetail({ id }: { id: string }) {
   async function handleDownloadReport() {
     if (!task) return;
     setIsDownloadingPdf(true);
+    toast.push("Генерация PDF отчета...");
     try {
       await generateAndSavePdf(task, locale);
     } catch (err) {
       console.error("Failed to generate PDF:", err);
+      toast.push(`Ошибка PDF: ${errorMessage(err)}`, "danger");
     } finally {
       setIsDownloadingPdf(false);
     }
