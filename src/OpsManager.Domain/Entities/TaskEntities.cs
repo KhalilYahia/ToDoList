@@ -792,6 +792,31 @@ public sealed class TaskItem : TenantAuditableEntity
         SubBlockTitle = Guard.Optional(subBlockTitle, 240);
     }
 
+    public void Update(
+        string title,
+        int sortOrder,
+        bool isRequired,
+        EvidenceMode evidenceMode,
+        string? description = null,
+        TaskItemType itemType = TaskItemType.SingleLineText,
+        string? options = null,
+        string? mainBlockTitle = null,
+        string? subBlockTitle = null)
+    {
+        string effectiveTitle = string.IsNullOrWhiteSpace(title)
+            ? (!string.IsNullOrWhiteSpace(mainBlockTitle) ? mainBlockTitle : (!string.IsNullOrWhiteSpace(subBlockTitle) ? subBlockTitle : title))
+            : title;
+        Title = Guard.Required(effectiveTitle, nameof(title), 240);
+        Description = Guard.Optional(description, 4000);
+        SortOrder = Guard.NonNegative(sortOrder, nameof(sortOrder));
+        IsRequired = isRequired;
+        EvidenceMode = evidenceMode;
+        ItemType = itemType;
+        Options = Guard.Optional(options, 4000);
+        MainBlockTitle = Guard.Optional(mainBlockTitle, 240);
+        SubBlockTitle = Guard.Optional(subBlockTitle, 240);
+    }
+
     public Guid TaskId { get; private set; }
     public Guid? TemplateItemId { get; private set; }
     public string Title { get; private set; } = string.Empty;

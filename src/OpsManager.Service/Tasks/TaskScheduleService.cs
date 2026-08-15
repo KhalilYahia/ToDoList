@@ -261,58 +261,60 @@ public sealed class TaskScheduleService(
                 dist.UpdateDetails(schedule.BranchId, schedule.DepartmentId, schedule.AssignmentMode, template.Id);
                 unitOfWork.Repository<TaskDistribution>().Update(dist);
 
-                // Remove old unstarted tasks and their items for this distribution
-                foreach (OperationalTask oldTask in distTasks.Items)
+                // Update existing tasks and items in place (without deleting entities, avoiding FK constraint violations)
+                for (int i = 0; i < distTasks.Items.Count; i++)
                 {
-                    PagedResult<TaskItem> oldItems = await unitOfWork.Repository<TaskItem>().ListAsync(
-                        item => item.TaskId == oldTask.Id,
+                    OperationalTask task = distTasks.Items[i];
+                    task.Reschedule(task.OccurrenceDate, newStart, newDue, false);
+                    task.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
+                    if (i < resolvedAssignees.Count)
+                    {
+                        task.Assign(resolvedAssignees[i].UserId);
+                    }
+                    unitOfWork.Repository<OperationalTask>().Update(task);
+
+                    PagedResult<TaskItem> existingItems = await unitOfWork.Repository<TaskItem>().ListAsync(
+                        item => item.TaskId == task.Id,
                         new PageRequest(1, PageRequest.MaximumPageSize),
                         cancellationToken);
 
-                    foreach (TaskItem oldItem in oldItems.Items)
+                    foreach (TaskTemplateItem templateItem in templateItems.Items)
                     {
-                        unitOfWork.Repository<TaskItem>().DeletePermanently(oldItem);
+                        TaskItem? existingItem = existingItems.Items.FirstOrDefault(
+                            item => item.TemplateItemId == templateItem.Id || item.SortOrder == templateItem.SortOrder);
+
+                        if (existingItem != null)
+                        {
+                            existingItem.Update(
+                                templateItem.Title,
+                                templateItem.SortOrder,
+                                templateItem.IsRequired,
+                                templateItem.EvidenceMode,
+                                templateItem.Description,
+                                templateItem.ItemType,
+                                templateItem.Options,
+                                templateItem.MainBlockTitle,
+                                templateItem.SubBlockTitle);
+                            unitOfWork.Repository<TaskItem>().Update(existingItem);
+                        }
+                        else
+                        {
+                            TaskItem newItem = new(
+                                schedule.OrganizationId,
+                                task.Id,
+                                templateItem.Title,
+                                templateItem.SortOrder,
+                                templateItem.IsRequired,
+                                templateItem.EvidenceMode,
+                                templateItem.Id,
+                                templateItem.Description,
+                                templateItem.ItemType,
+                                templateItem.Options,
+                                templateItem.MainBlockTitle,
+                                templateItem.SubBlockTitle);
+                            await unitOfWork.Repository<TaskItem>().AddAsync(newItem, cancellationToken);
+                        }
                     }
-                    unitOfWork.Repository<OperationalTask>().DeletePermanently(oldTask);
-                }
-
-                // Re-create assigned tasks and items using updated schedule, template, and resolved assignees
-                foreach (ResolvedTaskAssignee assignee in resolvedAssignees)
-                {
-                    OperationalTask newTask = OperationalTask.CreateAssignedCopy(
-                        schedule.OrganizationId,
-                        dist.Id,
-                        schedule.BranchId,
-                        schedule.DepartmentId,
-                        assignee.UserId,
-                        template.Id,
-                        schedule.Id,
-                        null,
-                        template.Title,
-                        template.Description,
-                        dist.OccurrenceDate,
-                        newStart,
-                        newDue,
-                        template.DefaultPriority,
-                        template.RequiresApproval,
-                        schedule.CreatedBy);
-
-                    await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
-                    await unitOfWork.Repository<TaskItem>().AddRangeAsync(
-                        templateItems.Items.Select(item => new TaskItem(
-                            schedule.OrganizationId,
-                            newTask.Id,
-                            item.Title,
-                            item.SortOrder,
-                            item.IsRequired,
-                            item.EvidenceMode,
-                            item.Id,
-                            item.Description,
-                            item.ItemType,
-                            item.Options,
-                            item.MainBlockTitle,
-                            item.SubBlockTitle)),
-                        cancellationToken);
                 }
             }
         }
