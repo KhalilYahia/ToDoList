@@ -231,9 +231,10 @@ public sealed class TaskScheduleService(
             new PageRequest(1, PageRequest.MaximumPageSize),
             cancellationToken);
 
-        IReadOnlyList<Guid> configuredAssignees = schedule.AssignmentMode != TaskAssignmentMode.AllDepartmentMembers
-            ? request.Assignment.UserIds
-            : [];
+        IReadOnlyList<Guid> configuredAssignees = await unitOfWork.Repository<TaskScheduleAssignee>().ProjectAsync(
+            assignee => assignee.TaskScheduleId == schedule.Id,
+            assignee => assignee.UserId,
+            cancellationToken);
 
         IReadOnlyList<ResolvedTaskAssignee> resolvedAssignees = await assigneeResolver.ResolveScheduledAsync(
             schedule.OrganizationId,
@@ -243,9 +244,10 @@ public sealed class TaskScheduleService(
             configuredAssignees,
             cancellationToken);
 
-        IReadOnlyCollection<DateOnly> specificDates = schedule.RecurrenceType == RecurrenceType.SpecificDates
-            ? request.SpecificDates
-            : [];
+        IReadOnlyCollection<DateOnly> specificDates = await unitOfWork.Repository<TaskScheduleDate>().ProjectAsync(
+            d => d.TaskScheduleId == schedule.Id,
+            d => d.OccurrenceDate,
+            cancellationToken);
 
         DateOnly horizon = DateOnly.FromDateTime(clock.UtcNow.DateTime).AddDays(90);
         IReadOnlyList<DateOnly> validDates = TaskOccurrenceCalculator.Calculate(schedule, horizon, specificDates);
@@ -282,106 +284,115 @@ public sealed class TaskScheduleService(
                 dist.UpdateDetails(schedule.BranchId, schedule.DepartmentId, schedule.AssignmentMode, template.Id);
                 unitOfWork.Repository<TaskDistribution>().Update(dist);
 
-                int commonCount = Math.Min(distTasks.Items.Count, resolvedAssignees.Count);
+                HashSet<Guid> newAssigneeUserIds = resolvedAssignees.Select(a => a.UserId).ToHashSet();
+                Dictionary<Guid, OperationalTask> existingTasksByAssignee = distTasks.Items
+                    .Where(t => t.AssigneeUserId.HasValue)
+                    .ToDictionary(t => t.AssigneeUserId!.Value, t => t);
 
-                // Update existing common tasks and items in place
-                for (int i = 0; i < commonCount; i++)
+                // 1. Cancel tasks for assignees no longer in the schedule
+                foreach (OperationalTask task in distTasks.Items)
                 {
-                    OperationalTask task = distTasks.Items[i];
-                    task.Reschedule(task.OccurrenceDate, newStart, newDue, false);
-                    task.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
-                    task.Assign(resolvedAssignees[i].UserId);
-                    unitOfWork.Repository<OperationalTask>().Update(task);
-
-                    PagedResult<TaskItem> existingItems = await unitOfWork.Repository<TaskItem>().ListAsync(
-                        item => item.TaskId == task.Id,
-                        new PageRequest(1, PageRequest.MaximumPageSize),
-                        cancellationToken);
-
-                    foreach (TaskTemplateItem templateItem in templateItems.Items)
+                    if (task.AssigneeUserId.HasValue && !newAssigneeUserIds.Contains(task.AssigneeUserId.Value) && task.Status != OperationalTaskStatus.Cancelled)
                     {
-                        TaskItem? existingItem = existingItems.Items.FirstOrDefault(
-                            item => item.TemplateItemId == templateItem.Id || item.SortOrder == templateItem.SortOrder);
-
-                        if (existingItem != null)
-                        {
-                            existingItem.Update(
-                                templateItem.Title,
-                                templateItem.SortOrder,
-                                templateItem.IsRequired,
-                                templateItem.EvidenceMode,
-                                templateItem.Description,
-                                templateItem.ItemType,
-                                templateItem.Options,
-                                templateItem.MainBlockTitle,
-                                templateItem.SubBlockTitle);
-                            unitOfWork.Repository<TaskItem>().Update(existingItem);
-                        }
-                        else
-                        {
-                            TaskItem newItem = new(
-                                schedule.OrganizationId,
-                                task.Id,
-                                templateItem.Title,
-                                templateItem.SortOrder,
-                                templateItem.IsRequired,
-                                templateItem.EvidenceMode,
-                                templateItem.Id,
-                                templateItem.Description,
-                                templateItem.ItemType,
-                                templateItem.Options,
-                                templateItem.MainBlockTitle,
-                                templateItem.SubBlockTitle);
-                            await unitOfWork.Repository<TaskItem>().AddAsync(newItem, cancellationToken);
-                        }
+                        task.Cancel(currentActorId, nowUtc, "Assignee removed from schedule.");
+                        unitOfWork.Repository<OperationalTask>().Update(task);
                     }
                 }
 
-                // If assignees increased, create new tasks and items for extra assignees
-                for (int i = commonCount; i < resolvedAssignees.Count; i++)
+                // 2. Sync or create tasks for each resolved assignee
+                foreach (ResolvedTaskAssignee assignee in resolvedAssignees)
                 {
-                    OperationalTask newTask = OperationalTask.CreateAssignedCopy(
-                        schedule.OrganizationId,
-                        dist.Id,
-                        schedule.BranchId,
-                        schedule.DepartmentId,
-                        resolvedAssignees[i].UserId,
-                        template.Id,
-                        schedule.Id,
-                        null,
-                        template.Title,
-                        template.Description,
-                        dist.OccurrenceDate,
-                        newStart,
-                        newDue,
-                        template.DefaultPriority,
-                        template.RequiresApproval,
-                        schedule.CreatedBy);
+                    if (existingTasksByAssignee.TryGetValue(assignee.UserId, out OperationalTask? task))
+                    {
+                        if (task.Status == OperationalTaskStatus.Cancelled)
+                        {
+                            task.ResetToNotStarted(currentActorId, nowUtc, "Assignee restored to schedule.");
+                        }
 
-                    await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
-                    await unitOfWork.Repository<TaskItem>().AddRangeAsync(
-                        templateItems.Items.Select(item => new TaskItem(
+                        task.Reschedule(task.OccurrenceDate, newStart, newDue, false);
+                        task.UpdateDetails(template.Title, template.Description, template.DefaultPriority, template.RequiresApproval);
+                        unitOfWork.Repository<OperationalTask>().Update(task);
+
+                        PagedResult<TaskItem> existingItems = await unitOfWork.Repository<TaskItem>().ListAsync(
+                            item => item.TaskId == task.Id,
+                            new PageRequest(1, PageRequest.MaximumPageSize),
+                            cancellationToken);
+
+                        foreach (TaskTemplateItem templateItem in templateItems.Items)
+                        {
+                            TaskItem? existingItem = existingItems.Items.FirstOrDefault(
+                                item => item.TemplateItemId == templateItem.Id || item.SortOrder == templateItem.SortOrder);
+
+                            if (existingItem != null)
+                            {
+                                existingItem.Update(
+                                    templateItem.Title,
+                                    templateItem.SortOrder,
+                                    templateItem.IsRequired,
+                                    templateItem.EvidenceMode,
+                                    templateItem.Description,
+                                    templateItem.ItemType,
+                                    templateItem.Options,
+                                    templateItem.MainBlockTitle,
+                                    templateItem.SubBlockTitle);
+                                unitOfWork.Repository<TaskItem>().Update(existingItem);
+                            }
+                            else
+                            {
+                                TaskItem newItem = new(
+                                    schedule.OrganizationId,
+                                    task.Id,
+                                    templateItem.Title,
+                                    templateItem.SortOrder,
+                                    templateItem.IsRequired,
+                                    templateItem.EvidenceMode,
+                                    templateItem.Id,
+                                    templateItem.Description,
+                                    templateItem.ItemType,
+                                    templateItem.Options,
+                                    templateItem.MainBlockTitle,
+                                    templateItem.SubBlockTitle);
+                                await unitOfWork.Repository<TaskItem>().AddAsync(newItem, cancellationToken);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        OperationalTask newTask = OperationalTask.CreateAssignedCopy(
                             schedule.OrganizationId,
-                            newTask.Id,
-                            item.Title,
-                            item.SortOrder,
-                            item.IsRequired,
-                            item.EvidenceMode,
-                            item.Id,
-                            item.Description,
-                            item.ItemType,
-                            item.Options,
-                            item.MainBlockTitle,
-                            item.SubBlockTitle)),
-                        cancellationToken);
-                }
+                            dist.Id,
+                            schedule.BranchId,
+                            schedule.DepartmentId,
+                            assignee.UserId,
+                            template.Id,
+                            schedule.Id,
+                            null,
+                            template.Title,
+                            template.Description,
+                            dist.OccurrenceDate,
+                            newStart,
+                            newDue,
+                            template.DefaultPriority,
+                            template.RequiresApproval,
+                            schedule.CreatedBy);
 
-                // If assignees decreased, cancel extra tasks
-                for (int i = commonCount; i < distTasks.Items.Count; i++)
-                {
-                    OperationalTask extraTask = distTasks.Items[i];
-                    extraTask.Cancel(currentActorId, nowUtc, "Assignee removed from schedule.");
-                    unitOfWork.Repository<OperationalTask>().Update(extraTask);
+                        await unitOfWork.Repository<OperationalTask>().AddAsync(newTask, cancellationToken);
+                        await unitOfWork.Repository<TaskItem>().AddRangeAsync(
+                            templateItems.Items.Select(item => new TaskItem(
+                                schedule.OrganizationId,
+                                newTask.Id,
+                                item.Title,
+                                item.SortOrder,
+                                item.IsRequired,
+                                item.EvidenceMode,
+                                item.Id,
+                                item.Description,
+                                item.ItemType,
+                                item.Options,
+                                item.MainBlockTitle,
+                                item.SubBlockTitle)),
+                            cancellationToken);
+                    }
                 }
             }
         }
@@ -765,6 +776,7 @@ public sealed class TaskOccurrenceGeneratorService(
                         created++;
                     }
                 }
+                await unitOfWork.SaveChangesAsync(cancellationToken);
             }
             else
             {
@@ -801,6 +813,7 @@ public sealed class TaskOccurrenceGeneratorService(
                 created += result.CreatedTaskCount;
             }
         }
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return new OccurrenceGenerationResult(schedule.Id, created, horizon);
     }
 
