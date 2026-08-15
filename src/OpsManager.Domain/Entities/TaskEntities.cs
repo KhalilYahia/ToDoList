@@ -208,6 +208,31 @@ public sealed class TaskDistribution : TenantAuditableEntity
     public DateTimeOffset DueAt { get; private set; }
     public Guid CreatedBy { get; private set; }
 
+    public void Reschedule(DateTimeOffset scheduledStartAt, DateTimeOffset dueAt)
+    {
+        if (dueAt <= scheduledStartAt)
+        {
+            throw new DomainInvariantException("Distribution due time must be later than its scheduled start time.");
+        }
+
+        ScheduledStartAt = scheduledStartAt;
+        DueAt = dueAt;
+    }
+
+    public void UpdateDetails(Guid branchId, Guid departmentId, TaskAssignmentMode assignmentMode, Guid? taskTemplateId)
+    {
+        if (!Enum.IsDefined(assignmentMode))
+        {
+            throw new DomainInvariantException("Assignment mode is not supported.");
+        }
+
+        ValidateOptionalId(taskTemplateId, nameof(taskTemplateId));
+        BranchId = Guard.NotEmpty(branchId, nameof(branchId));
+        DepartmentId = Guard.NotEmpty(departmentId, nameof(departmentId));
+        AssignmentMode = assignmentMode;
+        TaskTemplateId = taskTemplateId;
+    }
+
     private static void ValidateOptionalId(Guid? value, string name)
     {
         if (value == Guid.Empty)
