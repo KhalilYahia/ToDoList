@@ -231,10 +231,9 @@ public sealed class TaskScheduleService(
             new PageRequest(1, PageRequest.MaximumPageSize),
             cancellationToken);
 
-        IReadOnlyList<Guid> configuredAssignees = await unitOfWork.Repository<TaskScheduleAssignee>().ProjectAsync(
-            assignee => assignee.TaskScheduleId == schedule.Id,
-            assignee => assignee.UserId,
-            cancellationToken);
+        IReadOnlyList<Guid> configuredAssignees = schedule.AssignmentMode != TaskAssignmentMode.AllDepartmentMembers
+            ? request.Assignment.UserIds
+            : [];
 
         IReadOnlyList<ResolvedTaskAssignee> resolvedAssignees = await assigneeResolver.ResolveScheduledAsync(
             schedule.OrganizationId,
@@ -244,10 +243,9 @@ public sealed class TaskScheduleService(
             configuredAssignees,
             cancellationToken);
 
-        IReadOnlyCollection<DateOnly> specificDates = await unitOfWork.Repository<TaskScheduleDate>().ProjectAsync(
-            d => d.TaskScheduleId == schedule.Id,
-            d => d.OccurrenceDate,
-            cancellationToken);
+        IReadOnlyCollection<DateOnly> specificDates = schedule.RecurrenceType == RecurrenceType.SpecificDates
+            ? request.SpecificDates
+            : [];
 
         DateOnly horizon = DateOnly.FromDateTime(clock.UtcNow.DateTime).AddDays(90);
         IReadOnlyList<DateOnly> validDates = TaskOccurrenceCalculator.Calculate(schedule, horizon, specificDates);
