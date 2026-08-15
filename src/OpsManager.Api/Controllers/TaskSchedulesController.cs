@@ -55,8 +55,11 @@ public sealed class TaskSchedulesController(
 
     [HttpPost("{id:guid}/activate")]
     [Authorize(Policy = PolicyNames.Manager)]
-    public Task Activate(Guid id, CancellationToken cancellationToken) =>
-        service.SetActiveAsync(id, true, cancellationToken);
+    public async Task Activate(Guid id, CancellationToken cancellationToken)
+    {
+        await service.SetActiveAsync(id, true, cancellationToken);
+        await generator.GenerateAsync(id, null, cancellationToken);
+    }
 
     [HttpPost("{id:guid}/deactivate")]
     [Authorize(Policy = PolicyNames.Manager)]
