@@ -530,11 +530,23 @@ public sealed class TaskService(
         TaskItem targetItem = await unitOfWork.Repository<TaskItem>()
             .FirstOrDefaultAsync(item => item.Id == itemId && item.TaskId == taskId, cancellationToken)
             ?? throw new EntityNotFoundException(nameof(TaskItem));
+
+        int maxAllowed = targetItem.MaxAttachments;
+        if (targetItem.TemplateItemId.HasValue)
+        {
+            TaskTemplateItem? templateItem = await unitOfWork.Repository<TaskTemplateItem>()
+                .GetByIdAsync(targetItem.TemplateItemId.Value, cancellationToken);
+            if (templateItem != null)
+            {
+                maxAllowed = templateItem.MaxAttachments;
+            }
+        }
+
         int existingCount = await unitOfWork.Repository<TaskAttachment>()
             .CountAsync(attachment => attachment.TaskId == taskId && attachment.TaskItemId == itemId, cancellationToken);
-        if (existingCount >= targetItem.MaxAttachments)
+        if (existingCount >= maxAllowed)
         {
-            throw new ConflictException($"Maximum attachment limit ({targetItem.MaxAttachments}) reached for this item.", "max_attachments_exceeded");
+            throw new ConflictException($"Maximum attachment limit ({maxAllowed}) reached for this item.", "max_attachments_exceeded");
         }
         StoredFile file = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
         TaskAttachment attachment = new(
@@ -773,6 +785,19 @@ public sealed class TaskService(
         TaskExecutionWindowState windowState = task.GetExecutionWindowState(now);
         bool canStart = task.CanStartInWindow(now);
         bool canComplete = task.CanCompleteInWindow(now);
+        Dictionary<Guid, int> templateMaxMap = new();
+        if (task.TaskTemplateId.HasValue)
+        {
+            PagedResult<TaskTemplateItem> tItems = await unitOfWork.Repository<TaskTemplateItem>().ListAsync(
+                ti => ti.TaskTemplateId == task.TaskTemplateId.Value && ti.IsActive,
+                new PageRequest(1, PageRequest.MaximumPageSize),
+                cancellationToken);
+            foreach (TaskTemplateItem ti in tItems.Items)
+            {
+                templateMaxMap[ti.Id] = ti.MaxAttachments;
+            }
+        }
+
         return new TaskDto(
             task.Id,
             task.BranchId,
@@ -806,7 +831,10 @@ public sealed class TaskService(
                         .Where(a => a.TaskItemId == item.Id)
                         .Select(a => new TaskAttachmentDto(a.Id, fileStorage.ResolveUrl(a.FileUrl), a.FileType))
                         .ToList();
-                    return Map(item, itemAtts.Count, itemAtts);
+                    int maxAtt = (item.TemplateItemId.HasValue && templateMaxMap.TryGetValue(item.TemplateItemId.Value, out int tm))
+                        ? tm
+                        : item.MaxAttachments;
+                    return Map(item, itemAtts.Count, itemAtts, maxAtt);
                 })
                 .ToArray(),
             windowState,
@@ -829,7 +857,7 @@ public sealed class TaskService(
             request.SubBlockTitle,
             request.MaxAttachments);
 
-    private static TaskItemDto Map(TaskItem item, int attachmentCount, IReadOnlyList<TaskAttachmentDto>? attachments = null) =>
+    private static TaskItemDto Map(TaskItem item, int attachmentCount, IReadOnlyList<TaskAttachmentDto>? attachments = null, int? overrideMaxAttachments = null) =>
         new(
             item.Id,
             item.Title,
@@ -848,7 +876,7 @@ public sealed class TaskService(
             item.SubBlockTitle,
             item.Value,
             attachments,
-            item.MaxAttachments);
+            overrideMaxAttachments ?? item.MaxAttachments);
 
     private static void EnsureMutable(OperationalTask task)
     {

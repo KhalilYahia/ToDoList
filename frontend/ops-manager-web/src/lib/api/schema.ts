@@ -5706,6 +5706,8 @@ export interface components {
             options?: null | string;
             mainBlockTitle?: null | string;
             subBlockTitle?: null | string;
+            /** Format: int32 */
+            maxAttachments?: number | string;
         };
         ChecklistDefinitionRequest: {
             title: string;
@@ -5718,6 +5720,8 @@ export interface components {
             options?: null | string;
             mainBlockTitle?: null | string;
             subBlockTitle?: null | string;
+            /** Format: int32 */
+            maxAttachments?: number | string;
         };
         CloneTaskRequest: {
             assignment: components["schemas"]["TaskAssignmentRequest"];
@@ -6665,6 +6669,8 @@ export interface components {
             subBlockTitle?: null | string;
             value?: null | string;
             attachments?: { id: string; fileUrl: string; fileType: string }[] | null;
+            /** Format: int32 */
+            maxAttachments?: number | string;
         };
         TaskExecutionWindowState: number;
         TaskTemporalScope: number;
