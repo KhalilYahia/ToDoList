@@ -27,6 +27,7 @@ public interface IOrganizationService
     Task SuspendMemberAsync(Guid membershipId, CancellationToken cancellationToken = default);
     Task SetMemberDepartmentsAsync(Guid membershipId, SetMemberDepartmentsRequest request, CancellationToken cancellationToken = default);
     Task ResetMemberPasswordAsync(Guid membershipId, ResetMemberPasswordRequest request, CancellationToken cancellationToken = default);
+    Task<StoredFile> UploadMemberAvatarAsync(Guid membershipId, Stream content, string fileName, string contentType, CancellationToken cancellationToken = default);
 }
 
 public sealed class OrganizationService(
@@ -36,6 +37,7 @@ public sealed class OrganizationService(
     IPasswordService passwordService,
     IClock clock,
     IAuditService auditService,
+    IFileStorageService fileStorage,
     IRequestValidator<UpdateOrganizationRequest> organizationValidator,
     IRequestValidator<SaveDepartmentRequest> departmentValidator,
     IRequestValidator<CreateMemberRequest> createMemberValidator,
@@ -217,6 +219,8 @@ public sealed class OrganizationService(
         User user = new(request.FullName, request.Email, passwordService.HashPassword(request.TemporaryPassword), request.PreferredLanguage)
         {
             Phone = request.Phone?.Trim(),
+            Address = request.Address?.Trim(),
+            ProfileImageUrl = request.ProfileImageUrl?.Trim(),
             MustChangePassword = true,
         };
         OrganizationMember membership = new(organizationId, user.Id, request.Role, clock.UtcNow);
@@ -268,6 +272,11 @@ public sealed class OrganizationService(
             ?? throw new EntityNotFoundException(nameof(User));
         user.FullName = request.FullName.Trim();
         user.Phone = request.Phone?.Trim();
+        user.Address = request.Address?.Trim();
+        if (request.ProfileImageUrl is not null)
+        {
+            user.ProfileImageUrl = request.ProfileImageUrl.Trim();
+        }
         user.PreferredLanguage = request.PreferredLanguage;
         membership.Role = request.Role;
         unitOfWork.Repository<User>().Update(user);
@@ -328,6 +337,26 @@ public sealed class OrganizationService(
         unitOfWork.Repository<User>().Update(user);
         await auditService.RecordTenantAsync(organizationId, "member.password-reset", nameof(OrganizationMember), membershipId, cancellationToken: cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<StoredFile> UploadMemberAvatarAsync(
+        Guid membershipId,
+        Stream content,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken = default)
+    {
+        Guid organizationId = AuthorizationGuard.RequireManager(currentUser);
+        await subscriptionAccess.EnsureWriteAllowedAsync(organizationId, cancellationToken: cancellationToken);
+        OrganizationMember membership = await GetMembershipAsync(membershipId, organizationId, cancellationToken);
+        User user = await unitOfWork.Repository<User>().GetByIdAsync(membership.UserId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(User));
+        StoredFile file = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
+        user.ProfileImageUrl = file.Url;
+        unitOfWork.Repository<User>().Update(user);
+        await auditService.RecordTenantAsync(organizationId, "member.avatar-updated", nameof(OrganizationMember), membershipId, cancellationToken: cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return file;
     }
 
     private static RequestValidationException Validation(string field, string message) =>
@@ -464,12 +493,17 @@ public sealed class OrganizationService(
             entity => entity.OrganizationId == membership.OrganizationId && entity.UserId == membership.UserId && entity.LeftAt == null,
             entity => entity.DepartmentId,
             cancellationToken);
+        string? avatarUrl = string.IsNullOrWhiteSpace(user.ProfileImageUrl)
+            ? null
+            : fileStorage.ResolveUrl(user.ProfileImageUrl);
         return new MemberDto(
             membership.Id,
             user.Id,
             user.FullName,
             user.Email,
             user.Phone,
+            user.Address,
+            avatarUrl,
             membership.Role,
             membership.IsActive,
             user.AccountStatus,

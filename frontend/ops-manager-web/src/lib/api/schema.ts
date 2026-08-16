@@ -5805,6 +5805,8 @@ export interface components {
             fullName: string;
             email: string;
             phone: null | string;
+            address?: null | string;
+            profileImageUrl?: null | string;
             preferredLanguage: string;
             role: components["schemas"]["OrganizationRole"];
             temporaryPassword: string;
@@ -5987,6 +5989,8 @@ export interface components {
             fullName: string;
             email: null | string;
             phone: null | string;
+            address?: null | string;
+            profileImageUrl?: null | string;
             role: components["schemas"]["OrganizationRole"];
             isActive: boolean;
             accountStatus: components["schemas"]["UserAccountStatus"];
@@ -6777,6 +6781,8 @@ export interface components {
         UpdateMemberRequest: {
             fullName: string;
             phone: null | string;
+            address?: null | string;
+            profileImageUrl?: null | string;
             preferredLanguage: string;
             role: components["schemas"]["OrganizationRole"];
         };

@@ -25,6 +25,8 @@ const memberBaseSchema = z.object({
   fullName: z.string().trim().min(2).max(200),
   email: z.union([z.literal(""), z.string().email()]),
   phone: z.string().trim().max(40),
+  address: z.string().trim().max(500),
+  profileImageUrl: z.string(),
   preferredLanguage: z.enum(["ar", "en", "ru"]),
   role: z.enum(enumCodes.organizationRole),
   temporaryPassword: z.string().max(128),

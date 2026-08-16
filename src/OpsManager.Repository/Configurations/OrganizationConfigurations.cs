@@ -64,6 +64,7 @@ internal sealed class UserConfiguration : EntityConfigurationBase<User>
         builder.Property(entity => entity.Email).HasMaxLength(320);
         builder.Property(entity => entity.NormalizedEmail).HasMaxLength(320);
         builder.Property(entity => entity.Phone).HasMaxLength(40);
+        builder.Property(entity => entity.Address).HasMaxLength(500);
         builder.Property(entity => entity.PasswordHash).HasMaxLength(1000).IsRequired();
         builder.Property(entity => entity.ProfileImageUrl).HasMaxLength(2048);
         builder.Property(entity => entity.PreferredLanguage).HasMaxLength(2).IsRequired();

@@ -60,6 +60,8 @@ public sealed record MemberDto(
     string FullName,
     string? Email,
     string? Phone,
+    string? Address,
+    string? ProfileImageUrl,
     OrganizationRole Role,
     bool IsActive,
     UserAccountStatus AccountStatus,
@@ -70,6 +72,8 @@ public sealed record CreateMemberRequest(
     string FullName,
     string Email,
     string? Phone,
+    string? Address,
+    string? ProfileImageUrl,
     string PreferredLanguage,
     OrganizationRole Role,
     string TemporaryPassword,
@@ -78,6 +82,8 @@ public sealed record CreateMemberRequest(
 public sealed record UpdateMemberRequest(
     string FullName,
     string? Phone,
+    string? Address,
+    string? ProfileImageUrl,
     string PreferredLanguage,
     OrganizationRole Role);
 

@@ -860,10 +860,10 @@ public sealed class TaskItem : TenantAuditableEntity
 
     public void Complete(Guid completedBy, DateTimeOffset completedAt, bool hasEvidenceAttachment)
     {
-        if (Status != TaskItemStatus.Pending)
-        {
-            throw new InvalidStateTransitionException(nameof(TaskItem), Status.ToString(), TaskItemStatus.Completed.ToString());
-        }
+        //if (Status != TaskItemStatus.Pending)
+        //{
+        //    throw new InvalidStateTransitionException(nameof(TaskItem), Status.ToString(), TaskItemStatus.Completed.ToString());
+        //}
        
 
         if (EvidenceMode == EvidenceMode.Required && !hasEvidenceAttachment)

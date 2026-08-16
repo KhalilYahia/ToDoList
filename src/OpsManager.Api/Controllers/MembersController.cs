@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpsManager.Domain.Constants;
+using OpsManager.Service.Abstractions;
 using OpsManager.Service.Common;
 using OpsManager.Service.Organizations;
 using OpsManager.Service.Organizations.DTOs;
@@ -78,5 +79,27 @@ public sealed class MembersController(IOrganizationService service) : Controller
     {
         await service.ResetMemberPasswordAsync(id, request, cancellationToken);
         return NoContent();
+    }
+
+    [HttpPost("{id:guid}/avatar")]
+    [Authorize(Policy = PolicyNames.Manager)]
+    public async Task<ActionResult<StoredFile>> UploadAvatar(
+        Guid id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest("A non-empty avatar file is required.");
+        }
+
+        await using Stream stream = file.OpenReadStream();
+        StoredFile result = await service.UploadMemberAvatarAsync(
+            id,
+            stream,
+            file.FileName,
+            file.ContentType,
+            cancellationToken);
+        return Ok(result);
     }
 }

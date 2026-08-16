@@ -88,6 +88,7 @@ public sealed class User : SoftDeletableEntity
     public string? Email { get; set; }
     public string? NormalizedEmail { get; set; }
     public string? Phone { get; set; }
+    public string? Address { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
     public string? ProfileImageUrl { get; set; }
     public string PreferredLanguage { get; set; } = SupportedLanguages.English;

@@ -222,15 +222,20 @@ public sealed class PlatformBranchService(
         Guid? excludedId,
         CancellationToken cancellationToken)
     {
+
         string normalizedName = name.Trim().ToUpperInvariant();
+#pragma warning disable CA1304 // EF Core translates parameterless ToUpper() to SQL UPPER().
+#pragma warning disable CA1311 // Culture overload cannot be translated by EF Core.
 #pragma warning disable CA1862 // Keep query provider translation server-side.
         bool exists = await unitOfWork.Repository<Branch>().AnyAsync(
             branch =>
                 branch.OrganizationId == organizationId &&
                 branch.Id != excludedId &&
-                branch.Name.ToUpperInvariant() == normalizedName,
+                branch.Name.ToUpper() == normalizedName,
             cancellationToken);
 #pragma warning restore CA1862
+#pragma warning restore CA1311
+#pragma warning restore CA1304
         if (exists)
         {
             throw new ConflictException(

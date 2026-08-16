@@ -13,6 +13,7 @@ import {
   Card,
   Dialog,
   Field,
+  FileUploader,
   Input,
   Select,
   Skeleton,
@@ -70,6 +71,8 @@ export function MemberForm({ id }: { id?: string }) {
       fullName: "",
       email: "",
       phone: "",
+      address: "",
+      profileImageUrl: "",
       preferredLanguage: "en",
       role: "Employee",
       temporaryPassword: "",
@@ -83,6 +86,8 @@ export function MemberForm({ id }: { id?: string }) {
       fullName: member.data.fullName,
       email: member.data.email ?? "",
       phone: member.data.phone ?? "",
+      address: (member.data as any).address ?? "",
+      profileImageUrl: (member.data as any).profileImageUrl ?? "",
       preferredLanguage: "en",
       role: enumCode(
         "organizationRole",
@@ -123,6 +128,8 @@ export function MemberForm({ id }: { id?: string }) {
             fullName: values.fullName,
             email: values.email,
             phone: values.phone || null,
+            address: values.address || null,
+            profileImageUrl: values.profileImageUrl || null,
             preferredLanguage: values.preferredLanguage,
             role: enumValue("organizationRole", values.role),
             temporaryPassword: values.temporaryPassword,
@@ -136,6 +143,8 @@ export function MemberForm({ id }: { id?: string }) {
         body: {
           fullName: values.fullName,
           phone: values.phone || null,
+          address: values.address || null,
+          profileImageUrl: values.profileImageUrl || null,
           preferredLanguage: values.preferredLanguage,
           role: enumValue("organizationRole", values.role),
         } satisfies Schemas["UpdateMemberRequest"],
@@ -249,6 +258,52 @@ export function MemberForm({ id }: { id?: string }) {
         </div>
       ) : null}
       <Card className="mt-5 max-w-5xl">
+        {/* Profile Avatar Header Card */}
+        <div className="mb-5 flex flex-wrap items-center gap-4 border-b border-ink-950/10 pb-5">
+          <div className="relative size-20 overflow-hidden rounded-full border-2 border-indigo-600 bg-surface-100 shadow-md flex items-center justify-center">
+            {form.watch("profileImageUrl" as any) ? (
+              <img
+                src={form.watch("profileImageUrl" as any)}
+                alt="Profile Avatar"
+                className="size-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-black text-indigo-700">
+                {(form.watch("fullName") || "E").charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div>
+            <h3 className="font-bold text-base text-ink-900">
+              Profile Photo (Фото профиля)
+            </h3>
+            <p className="text-xs text-ink-500 mb-2">
+              Upload a profile image for this employee.
+            </p>
+            {id && writable ? (
+              <FileUploader
+                label="Upload photo"
+                disabled={!writable}
+                onChange={async (file: File | null) => {
+                  if (!file) return;
+                  const data = new FormData();
+                  data.append("file", file);
+                  try {
+                    const res = await apiRequest<{ url: string }>(`/members/${id}/avatar`, {
+                      method: "POST",
+                      body: data,
+                    });
+                    form.setValue("profileImageUrl" as any, res.url);
+                    toast.push("Profile image updated.");
+                    await member.refetch();
+                  } catch (err) {
+                    toast.push("Failed to upload avatar.");
+                  }
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
         <form
           className="grid gap-5"
           onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
@@ -290,6 +345,13 @@ export function MemberForm({ id }: { id?: string }) {
                 type="tel"
                 disabled={!writable}
                 {...form.register("phone")}
+              />
+            </Field>
+            <Field label="Address (Адрес)" error={(form.formState.errors as any).address?.message}>
+              <Input
+                placeholder="Enter employee address..."
+                disabled={!writable}
+                {...form.register("address" as any)}
               />
             </Field>
             <Field label="Preferred UI language" required>
