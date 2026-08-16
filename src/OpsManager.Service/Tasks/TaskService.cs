@@ -197,7 +197,29 @@ public sealed class TaskService(
         if (request.Items is not null)
         {
             SaveTaskTemplateValidator.ValidateItems(request.Items);
-            definitions = request.Items.Select(ToCopyDefinition).ToArray();
+            PagedResult<TaskTemplateItem> tItems = await unitOfWork.Repository<TaskTemplateItem>().ListAsync(
+                item => item.TaskTemplateId == templateId && item.IsActive,
+                new PageRequest(1, PageRequest.MaximumPageSize),
+                cancellationToken);
+            var tMaxList = tItems.Items.OrderBy(i => i.SortOrder).ToList();
+            definitions = request.Items.Select((req, idx) =>
+            {
+                int maxAtt = req.MaxAttachments > 0
+                    ? req.MaxAttachments
+                    : (idx < tMaxList.Count ? tMaxList[idx].MaxAttachments : 5);
+                return new TaskCopyItemDefinition(
+                    idx < tMaxList.Count ? tMaxList[idx].Id : null,
+                    req.Title,
+                    req.Description,
+                    req.SortOrder,
+                    req.IsRequired,
+                    req.EvidenceMode,
+                    req.ItemType,
+                    req.Options,
+                    req.MainBlockTitle,
+                    req.SubBlockTitle,
+                    maxAtt);
+            }).ToArray();
         }
         else
         {

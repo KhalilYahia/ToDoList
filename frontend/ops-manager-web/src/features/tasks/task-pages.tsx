@@ -80,6 +80,7 @@ const taskItemSchema = z.object({
   options: z.string().optional(),
   mainBlockTitle: z.string().optional(),
   subBlockTitle: z.string().optional(),
+  maxAttachments: z.number().min(1).max(5).optional(),
 });
 const taskSchema = z
   .object({
@@ -130,6 +131,7 @@ function emptyTaskItem(itemType = "SingleLineText"): TaskValues["items"][number]
     options: itemType === "MultipleChoice" ? "Option 1, Option 2, Option 3" : "",
     mainBlockTitle: "",
     subBlockTitle: "",
+    maxAttachments: 5,
   };
 }
 
@@ -222,7 +224,7 @@ export function TaskForm() {
       ),
       priority: enumCode("priority", template.data.defaultPriority),
       requiresApproval: template.data.requiresApproval,
-      items: template.data.items.map((item) => ({
+      items: template.data.items.map((item: any) => ({
         title: item.title,
         description: item.description ?? "",
         isRequired: item.isRequired,
@@ -233,6 +235,7 @@ export function TaskForm() {
         options: item.options ?? "",
         mainBlockTitle: item.mainBlockTitle ?? "",
         subBlockTitle: item.subBlockTitle ?? "",
+        maxAttachments: item.maxAttachments ? Number(item.maxAttachments) : 5,
       })),
     });
   }, [form, start, template.data]);
@@ -253,7 +256,7 @@ export function TaskForm() {
         dueAt: localInputToIso(values.dueAt),
         priority: enumValue("priority", values.priority),
         requiresApproval: values.requiresApproval,
-        items: values.items.map((item, index) => ({
+        items: values.items.map((item: any, index) => ({
           title: item.title,
           description: item.description || null,
           sortOrder: index,
@@ -263,6 +266,7 @@ export function TaskForm() {
           options: item.options || null,
           mainBlockTitle: item.mainBlockTitle || null,
           subBlockTitle: item.subBlockTitle || null,
+          maxAttachments: item.maxAttachments ? Number(item.maxAttachments) : 5,
         })),
       };
       return templateId
