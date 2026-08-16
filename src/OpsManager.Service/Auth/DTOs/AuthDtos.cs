@@ -28,8 +28,17 @@ public sealed record CurrentUserDto(
     string FullName,
     string? Email,
     string? Phone,
+    string? Address,
+    string? ProfileImageUrl,
     string PreferredLanguage,
     UserAccountStatus AccountStatus);
+
+public sealed record UpdateProfileRequest(
+    string FullName,
+    string? Phone,
+    string? Address,
+    string? ProfileImageUrl,
+    string? PreferredLanguage);
 
 public sealed record MembershipDto(Guid Id, OrganizationRole Role, bool IsActive, DateTimeOffset JoinedAt);
 

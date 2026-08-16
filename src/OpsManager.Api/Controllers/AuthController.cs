@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OpsManager.Api.Infrastructure;
 using OpsManager.Domain.Constants;
+using OpsManager.Service.Abstractions;
 using OpsManager.Service.Auth;
 using OpsManager.Service.Auth.DTOs;
 using OpsManager.Service.Common;
@@ -80,6 +81,35 @@ public sealed class AuthController(
     {
         await authService.ChangePasswordAsync(request, cancellationToken);
         return NoContent();
+    }
+
+    [HttpPatch("profile")]
+    [Authorize(Policy = PolicyNames.OrganizationMember)]
+    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
+    public Task<CurrentUserDto> UpdateProfile(
+        UpdateProfileRequest request,
+        CancellationToken cancellationToken) =>
+        authService.UpdateProfileAsync(request, cancellationToken);
+
+    [HttpPost("avatar")]
+    [Authorize(Policy = PolicyNames.OrganizationMember)]
+    [ProducesResponseType<StoredFile>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<StoredFile>> UploadAvatar(
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest("A non-empty avatar file is required.");
+        }
+
+        await using Stream stream = file.OpenReadStream();
+        StoredFile result = await authService.UploadMyAvatarAsync(
+            stream,
+            file.FileName,
+            file.ContentType,
+            cancellationToken);
+        return Ok(result);
     }
 
     private string RequireRefreshCookie()

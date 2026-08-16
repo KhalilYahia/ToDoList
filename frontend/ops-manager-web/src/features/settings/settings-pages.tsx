@@ -5,11 +5,12 @@ import { useMutation } from "@tanstack/react-query";
 
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { PageHeader } from "@/components/layout/page-header";
-import { Alert, Badge, Button, Card, Field, Input } from "@/components/ui/primitives";
+import { Alert, Badge, Button, Card, Field, FileUploader, Input } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast-provider";
 import { apiRequest } from "@/lib/api/client";
 import { enumCode, statusTone } from "@/lib/api/enums";
 import { errorMessage } from "@/lib/api/errors";
+import type { Schemas } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/auth-provider";
 import {
   isManager,
@@ -181,6 +182,122 @@ function ChangePasswordCard() {
 }
 
 
+function EditProfileCard() {
+  const { identity, refresh } = useAuth();
+  const toast = useToast();
+  if (identity?.realm !== "tenant") return null;
+  const user = identity.session.user;
+
+  const [fullName, setFullName] = useState(user.fullName || "");
+  const [phone, setPhone] = useState(user.phone || "");
+  const [address, setAddress] = useState((user as any).address || "");
+  const [profileImageUrl, setProfileImageUrl] = useState((user as any).profileImageUrl || "");
+  const [error, setError] = useState<string | null>(null);
+
+  const profileMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<Schemas["CurrentUserDto"]>("/auth/profile", {
+        method: "PATCH",
+        body: {
+          fullName,
+          phone: phone || null,
+          address: address || null,
+          profileImageUrl: profileImageUrl || null,
+        } satisfies Schemas["UpdateProfileRequest"],
+      }),
+    onSuccess: async () => {
+      toast.push("Profile updated successfully", "success");
+      setError(null);
+      await refresh();
+    },
+    onError: (err) => {
+      setError(errorMessage(err));
+    },
+  });
+
+  return (
+    <Card>
+      <h2 className="text-lg font-black">Edit Profile & Address</h2>
+      <p className="text-ink-600 mt-1 text-sm">
+        Update your personal details, profile picture, and address.
+      </p>
+
+      {/* Profile Photo Uploader */}
+      <div className="mt-4 flex flex-wrap items-center gap-4 border-b border-ink-950/10 pb-4">
+        <div className="relative size-16 overflow-hidden rounded-full border-2 border-indigo-600 bg-surface-100 shadow-md flex items-center justify-center">
+          {profileImageUrl ? (
+            <img
+              src={profileImageUrl}
+              alt="Avatar"
+              className="size-full object-cover"
+            />
+          ) : (
+            <span className="text-xl font-black text-indigo-700">
+              {(fullName || "U").charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-bold text-ink-900 mb-1">Profile Photo (Фото профиля)</p>
+          <FileUploader
+            label="Upload new photo"
+            onChange={async (file: File | null) => {
+              if (!file) return;
+              const data = new FormData();
+              data.append("file", file);
+              try {
+                const res = await apiRequest<{ url: string }>("/auth/avatar", {
+                  method: "POST",
+                  body: data,
+                });
+                setProfileImageUrl(res.url);
+                toast.push("Profile photo uploaded.");
+              } catch (err) {
+                toast.push("Failed to upload avatar.");
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          profileMutation.mutate();
+        }}
+        className="mt-4 grid gap-4"
+      >
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        <Field label="Full name" required>
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+        </Field>
+        <Field label="Phone">
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </Field>
+        <Field label="Address (Адрес)">
+          <Input
+            placeholder="Enter your address..."
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </Field>
+        <div>
+          <Button type="submit" busy={profileMutation.isPending}>
+            Save changes
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 export function ProfilePage() {
   const { identity } = useAuth();
   if (identity?.realm !== "tenant") return null;
@@ -198,12 +315,14 @@ export function ProfilePage() {
             fullName: user.fullName,
             email: user.email,
             phone: user.phone,
+            address: (user as any).address,
             organization: organization.name,
             preferredLanguage: user.preferredLanguage,
             accountStatus: enumCode("accountStatus", user.accountStatus),
           }}
         />
         <div className="grid gap-5">
+          <EditProfileCard />
           <Card>
             <h2 className="text-lg font-black">Interface language</h2>
             <p className="text-ink-600 mt-2 text-sm">

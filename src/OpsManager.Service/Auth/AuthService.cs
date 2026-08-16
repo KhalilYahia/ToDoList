@@ -19,6 +19,8 @@ public interface IAuthService
     Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<MeResponse> GetMeAsync(CancellationToken cancellationToken = default);
     Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken cancellationToken = default);
+    Task<CurrentUserDto> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default);
+    Task<StoredFile> UploadMyAvatarAsync(Stream content, string fileName, string contentType, CancellationToken cancellationToken = default);
 }
 
 public sealed class AuthService(
@@ -30,6 +32,7 @@ public sealed class AuthService(
     ICurrentUserContext currentUser,
     ISubscriptionAccessService subscriptionAccessService,
     IAuditService auditService,
+    IFileStorageService fileStorage,
     IRequestValidator<RegisterOrganizationRequest> registerValidator,
     IRequestValidator<LoginRequest> loginValidator,
     OnboardingOptions options) : IAuthService
@@ -373,8 +376,13 @@ public sealed class AuthService(
 
     private static string NormalizeEmail(string email) => email.Trim().ToUpperInvariant();
 
-    private static CurrentUserDto MapUser(User user) =>
-        new(user.Id, user.FullName, user.Email, user.Phone, user.PreferredLanguage, user.AccountStatus);
+    private CurrentUserDto MapUser(User user)
+    {
+        string? avatarUrl = string.IsNullOrWhiteSpace(user.ProfileImageUrl)
+            ? null
+            : fileStorage.ResolveUrl(user.ProfileImageUrl);
+        return new(user.Id, user.FullName, user.Email, user.Phone, user.Address, avatarUrl, user.PreferredLanguage, user.AccountStatus);
+    }
 
     private static OrganizationSummaryDto MapOrganization(Organization organization) =>
         new(organization.Id, organization.Name, organization.LegalName, organization.Timezone, organization.DefaultLanguage, organization.Status);
@@ -406,6 +414,45 @@ public sealed class AuthService(
         user.MustChangePassword = false;
         unitOfWork.Repository<User>().Update(user);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<CurrentUserDto> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken cancellationToken = default)
+    {
+        Guid userId = AuthorizationGuard.RequireUser(currentUser);
+        User user = await unitOfWork.Repository<User>().GetByIdAsync(userId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(User));
+        if (string.IsNullOrWhiteSpace(request.FullName))
+        {
+            throw Validation(nameof(request.FullName), "Full name is required.");
+        }
+
+        user.FullName = request.FullName.Trim();
+        user.Phone = request.Phone?.Trim();
+        user.Address = request.Address?.Trim();
+        if (request.ProfileImageUrl is not null)
+        {
+            user.ProfileImageUrl = request.ProfileImageUrl.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(request.PreferredLanguage))
+        {
+            user.PreferredLanguage = request.PreferredLanguage;
+        }
+
+        unitOfWork.Repository<User>().Update(user);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return MapUser(user);
+    }
+
+    public async Task<StoredFile> UploadMyAvatarAsync(Stream content, string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        Guid userId = AuthorizationGuard.RequireUser(currentUser);
+        User user = await unitOfWork.Repository<User>().GetByIdAsync(userId, cancellationToken)
+            ?? throw new EntityNotFoundException(nameof(User));
+        StoredFile file = await fileStorage.SaveAsync(content, fileName, contentType, cancellationToken);
+        user.ProfileImageUrl = file.Url;
+        unitOfWork.Repository<User>().Update(user);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return file;
     }
 
     private static RequestValidationException Validation(string field, string message) =>

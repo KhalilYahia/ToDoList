@@ -358,15 +358,33 @@ export function AppShell({
               </div>
             </div>
           </details>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold">
-              {tenantIdentity?.session.organization.name ??
-                platformIdentity?.user.fullName}
-            </p>
-            <p className="text-ink-600 truncate text-xs">
-              {tenantRole(identity) ??
-                (platformIdentity ? String(platformIdentity.user.role) : "")}
-            </p>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Link
+              href={realm === "tenant" ? "/settings/profile" : "/platform"}
+              className="flex items-center gap-3 rounded-xl p-1 transition hover:bg-ink-950/5"
+            >
+              <div className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-indigo-600 bg-surface-100 shadow-sm flex items-center justify-center">
+                {(tenantIdentity?.session.user as any)?.profileImageUrl ? (
+                  <img
+                    src={(tenantIdentity?.session.user as any)?.profileImageUrl}
+                    alt={tenantIdentity?.session.user.fullName ?? "User"}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <span className="text-base font-black text-indigo-700">
+                    {(tenantIdentity?.session.user.fullName ?? platformIdentity?.user.fullName ?? "U").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-ink-900">
+                  {tenantIdentity?.session.user.fullName ?? platformIdentity?.user.fullName}
+                </p>
+                <p className="truncate text-xs text-ink-500">
+                  {tenantRole(identity) ? `${tenantRole(identity)} • ${tenantIdentity?.session.organization.name}` : (platformIdentity ? String(platformIdentity.user.role) : "")}
+                </p>
+              </div>
+            </Link>
           </div>
           <LocaleSwitcher />
           {realm === "tenant" ? (
@@ -386,20 +404,7 @@ export function AppShell({
           {platformIdentity && isPlatformAdministrator(identity) ? (
             <Badge tone="success">Administrator</Badge>
           ) : null}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              void logout().then(() =>
-                router.replace(
-                  realm === "platform" ? "/platform/login" : "/login",
-                ),
-              )
-            }
-          >
-            <LogOut className="size-4" />
-            <span className="hidden md:inline">{t("logout")}</span>
-          </Button>
+        
         </header>
 
         {tenantIdentity && access ? (

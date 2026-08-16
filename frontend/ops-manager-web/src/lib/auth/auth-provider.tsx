@@ -33,6 +33,7 @@ type AuthContextValue = {
     password: string;
   }) => Promise<PlatformAuthentication>;
   bootstrap: (realm: AuthRealm) => Promise<Identity | null>;
+  refresh: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -129,6 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refresh = useCallback(async () => {
+    const realm = sessionStore.getSnapshot()?.realm ?? "tenant";
+    if (realm === "tenant") {
+      const me = await apiRequest<TenantSession>("/auth/me", { realm });
+      sessionStore.hydrateTenant(me);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     const realm = sessionStore.getSnapshot()?.realm ?? "tenant";
     const path =
@@ -147,9 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerTenant,
       loginPlatform,
       bootstrap,
+      refresh,
       logout,
     }),
-    [identity, loginTenant, registerTenant, loginPlatform, bootstrap, logout],
+    [identity, loginTenant, registerTenant, loginPlatform, bootstrap, refresh, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

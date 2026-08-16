@@ -5864,8 +5864,17 @@ export interface components {
             fullName: string;
             email: null | string;
             phone: null | string;
+            address?: null | string;
+            profileImageUrl?: null | string;
             preferredLanguage: string;
             accountStatus: components["schemas"]["UserAccountStatus"];
+        };
+        UpdateProfileRequest: {
+            fullName: string;
+            phone: null | string;
+            address?: null | string;
+            profileImageUrl?: null | string;
+            preferredLanguage?: null | string;
         };
         DepartmentDto: {
             /** Format: uuid */
